@@ -1,6 +1,3 @@
-# Fergana Bus bot: opens the map page inside Telegram as a Mini App.
-# Setup: pip install -r requirements.txt
-# Put BOT_TOKEN and WEBAPP_URL in a .env file (copy .env.example), then: python bot.py
 import os
 from dotenv import load_dotenv
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, MenuButtonWebApp, WebAppInfo
@@ -8,7 +5,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 load_dotenv()
 TOKEN = os.environ["BOT_TOKEN"]
-WEBAPP_URL = os.environ["WEBAPP_URL"]  # must be https
+WEBAPP_URL = os.environ["WEBAPP_URL"]
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -20,7 +17,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def post_init(app: Application):
-    # Also puts a "Map" button next to the chat input
     await app.bot.set_chat_menu_button(menu_button=MenuButtonWebApp("Map", WebAppInfo(url=WEBAPP_URL)))
 
 

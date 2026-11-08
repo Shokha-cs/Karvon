@@ -8,7 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-/* Light theme is the default. Dark theme turns on with the 🌙 button (saved per device). */
+/* light by default, dark via button */
 :root{--bg:#f2f4f7;--card:#ffffff;--ink:#141b26;--muted:#647085;--line:#e1e5ec;--accent:#1565d8;--accent-ink:#ffffff;
   --ok:#1d8a4e;--warn:#c27400;--bad:#cc3a2f;--shadow:0 6px 24px rgba(15,25,40,.14);--casing:rgba(20,27,38,.55)}
 :root[data-theme="dark"]{--bg:#0e131b;--card:#171e29;--ink:#e8edf4;--muted:#98a4b6;--line:#283241;--accent:#5c9dff;--accent-ink:#0e131b;
@@ -23,7 +23,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .leaflet-control-attribution{font-size:10px}
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--card);color:var(--ink)}
 
-/* Top bar floats over the map */
+/* top bar */
 .topbar{position:absolute;top:calc(10px + env(safe-area-inset-top));left:10px;right:10px;z-index:500;display:flex;gap:8px;align-items:center;pointer-events:none}
 .brand,.tabs,.fab,.iconbtn{pointer-events:auto;background:var(--card);box-shadow:var(--shadow);border-radius:14px}
 .brand{padding:8px 12px;font-weight:700;display:flex;gap:8px;align-items:center;white-space:nowrap}
@@ -35,11 +35,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 .fab{position:absolute;right:10px;z-index:500;border:0;padding:11px 14px;font-weight:600;display:flex;gap:6px;align-items:center}
 #nearBtn{bottom:24px}
 
-/* Panel: side panel on desktop, bottom sheet on phones */
+/* side panel / bottom sheet on phone */
 #panel{background:var(--card);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;z-index:600}
 .handle{display:none}
 .pane{overflow:auto;padding:14px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
-.pane>*{flex:none}   /* never squash the route buttons / cards when the panel is full */
+.pane>*{flex:none}   /* stops items shrinking */
 @media (max-width:760px){
   #app{grid-template-columns:1fr}
   #panel{position:absolute;left:0;right:0;bottom:0;height:46%;border-left:0;border-radius:18px 18px 0 0;box-shadow:var(--shadow);transition:height .25s ease;padding-bottom:env(safe-area-inset-bottom)}
@@ -63,7 +63,7 @@ h2{margin:0;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:v
 .chip.on{border-color:var(--c)}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none;display:inline-block;box-shadow:0 0 0 1px var(--casing)}
 
-/* Big "next bus" card */
+/* next bus card */
 .next{border-radius:16px;padding:14px;background:var(--bg);display:flex;flex-direction:column;gap:10px}
 .next .stop{font-weight:700;font-size:17px}
 .next .big{display:flex;align-items:baseline;gap:8px}
@@ -80,7 +80,7 @@ h2{margin:0;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:v
 .pill.mid{background:color-mix(in srgb,var(--warn) 15%,transparent)}
 .pill.full{background:color-mix(in srgb,var(--bad) 15%,transparent)}
 
-/* Hokimiyat */
+/* hokimiyat */
 .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .tile{background:var(--bg);border-radius:12px;padding:10px}
 .tile b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
@@ -89,7 +89,7 @@ h2{margin:0;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:v
 .rstat .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
 .flag{font-size:12px;font-weight:700;color:var(--bad)}
 
-/* Editor */
+/* editor */
 input[type=text],input[type=number]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .btns{display:flex;flex-wrap:wrap;gap:6px}
@@ -99,7 +99,7 @@ input[type=text],input[type=number]{width:100%;padding:9px 10px;border:1px solid
 .hint{background:var(--bg);border-radius:10px;padding:10px;font-size:13px;color:var(--muted)}
 .pp{display:flex;flex-direction:column;gap:6px;min-width:210px}
 
-/* Map markers */
+/* markers */
 .busicon{border-radius:8px;font:700 11px system-ui;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 5px #0007;position:relative}
 .busicon i{position:absolute;right:-5px;top:-5px;width:11px;height:11px;border-radius:50%;border:2px solid #fff}
 .me{width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 6px rgba(26,115,232,.25)}
@@ -123,7 +123,7 @@ input[type=text],input[type=number]{width:100%;padding:9px 10px;border:1px solid
   <div id="panel">
     <button class="handle" id="handle" aria-label="Resize panel"><i></i></button>
 
-    <!-- LIVE: passengers -->
+    <!-- live -->
     <section class="pane" id="tab-live">
       <div class="chips" id="routeChips"></div>
       <div class="next" id="nextCard"></div>
@@ -133,7 +133,7 @@ input[type=text],input[type=number]{width:100%;padding:9px 10px;border:1px solid
       </div>
     </section>
 
-    <!-- HOKIMIYAT: demand view -->
+    <!-- hokimiyat -->
     <section class="pane" id="tab-stats" hidden>
       <div class="tiles">
         <div class="tile"><b id="tBuses">0</b><span>buses running</span></div>
@@ -145,7 +145,7 @@ input[type=text],input[type=number]{width:100%;padding:9px 10px;border:1px solid
       <div class="btns"><button class="btn danger" id="resetStats">Reset requests</button></div>
     </section>
 
-    <!-- EDIT: admin only -->
+    <!-- edit (admin only) -->
     <section class="pane" id="tab-edit" hidden>
       <div class="hint" id="edHint"></div>
       <div class="btns" role="radiogroup" aria-label="Next click adds">
@@ -185,35 +185,35 @@ input[type=text],input[type=number]{width:100%;padding:9px 10px;border:1px solid
 </div>
 
 <script>
-// =============== Telegram Mini App ===============
+// telegram
 const tg = window.Telegram && window.Telegram.WebApp;
 const inTelegram = !!(tg && tg.initData);
 if (inTelegram){ tg.ready(); tg.expand(); }
 const haptic = () => { try{ tg.HapticFeedback.selectionChanged(); }catch(_){} };
 
-// Route editor only for you: on your laptop, or with ?admin=1 in the link
+// edit tab only on localhost or ?admin=1
 const isAdmin = location.protocol === "file:" || ["localhost","127.0.0.1"].includes(location.hostname) || new URLSearchParams(location.search).has("admin");
 document.getElementById("editTab").hidden = !isAdmin;
 
-// =============== Storage ===============
+// storage
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 };
-// Route fields saved to routes.json
+// fields that go to routes.json
 const clean = r => ({ id:r.id, name:r.name, title:r.title||"", color:r.color, buses:r.buses||null, interval:r.interval||null, stops:r.stops, path:r.path||null });
 const SEED = [{ id:"r11", name:"11", title:"", color:"#1d8a4e", buses:3, interval:null,
   stops:[[40.3545,71.6935],[40.3618,71.7120],[40.3640,71.7430],[40.3725,71.7640],[40.3810,71.7820],[40.3905,71.7950],[40.4090,71.8120],[40.4215,71.8320]], path:null }];
 let routes = store.get("fb_routes", SEED);
 let demand = store.get("fb_demand", {});
 
-// =============== Map + theme ===============
+// map + theme
 const FERGANA = [40.386, 71.786];
 const map = L.map("map", { zoomControl:false }).setView(FERGANA, 13);
 L.control.zoom({ position:"bottomleft" }).addTo(map);
-// MapTiler key is restricted to our site + localhost in the MapTiler dashboard
+// key is restricted to our domain in maptiler
 const MAPTILER_KEY = "h8xqSKwxJjsejXXj5waG";
-const MAP_STYLES = { light:["streets-v2-light","streets-v2"], dark:["streets-v2-dark"] };  // first one that loads wins
+const MAP_STYLES = { light:["streets-v2-light","streets-v2"], dark:["streets-v2-dark"] };  // fallback order
 const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
 const MT_ATTR = '<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>';
 let theme = store.get("fb_theme", "light"), baseLayer = null;
@@ -224,7 +224,7 @@ function setBase(list, i){
     esri ? { maxZoom:19, attribution:"Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors" }
          : { tileSize:512, zoomOffset:-1, maxZoom:20, crossOrigin:true, attribution:MT_ATTR }).addTo(map);
   baseLayer.bringToBack();
-  // style missing / key problem / limit reached -> try the next style, then Esri, so the map is never blank
+  // if tiles fail try next style, then esri
   let errs = 0;
   if (!esri) baseLayer.on("tileerror", () => { if (++errs === 4) setBase(list, i+1); });
 }
@@ -239,21 +239,21 @@ const $ = id => document.getElementById(id);
 $("themeBtn").onclick = () => { theme = theme === "dark" ? "light" : "dark"; store.set("fb_theme", theme); haptic(); applyTheme(); renderAll(); };
 applyTheme();
 
-// clicks on the top bar / Near me button shouldn't reach the map (would add points in Edit)
+// dont pass clicks through buttons to the map
 document.querySelectorAll(".topbar,.fab").forEach(el => { L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); });
 const routeLayer = L.layerGroup().addTo(map), busLayer = L.layerGroup().addTo(map), editLayer = L.layerGroup().addTo(map);
 let meMarker = null;
 
-// =============== Geometry ===============
+// geometry
 const R = 6371000, rad = d => d*Math.PI/180;
 function dist(a, b){
   const dLat = rad(b[0]-a[0]), dLng = rad(b[1]-a[1]);
   const h = Math.sin(dLat/2)**2 + Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLng/2)**2;
   return 2*R*Math.asin(Math.sqrt(h));
 }
-// Points: [lat,lng,0] = turn point (only shapes the line). Anything else is a stop: [lat,lng] or [lat,lng,1,"name"]
+// [lat,lng,0] = turn point, [lat,lng,1,"name"] = stop
 const isStop = p => p[2] !== 0;
-const ll = p => [p[0], p[1]];   // Leaflet only accepts [lat,lng]
+const ll = p => [p[0], p[1]];   // leaflet wants only lat,lng
 const stopName = (r, i) => (r._stops[i] && r._stops[i][3]) || `Stop ${i+1}`;
 function prep(r){
   const p = r.path && r.path.length > 1 ? r.path : r.stops, cum = [0];
@@ -261,7 +261,7 @@ function prep(r){
   r._line = p.map(ll); r._cum = cum; r._len = cum[cum.length-1];
   r._stops = r.stops.filter(isStop);
   r._stopAt = r._stops.map(s => { let best=0, bd=Infinity; p.forEach((q,i)=>{ const d=dist(s,q); if(d<bd){bd=d;best=i;} }); return cum[best]; });
-  // Speed that matches the real interval: n buses spread round the loop (there and back) arrive every `interval` minutes
+  // speed so buses come every `interval` min
   const n = r.buses || 3;
   r._speed = r.interval ? Math.min(14, Math.max(2, 2 * r._len / (n * r.interval * 60))) : 6;
 }
@@ -271,20 +271,17 @@ function pointAt(r, d){
   const t = (d - c[i-1]) / ((c[i]-c[i-1]) || 1);
   return [p[i-1][0] + (p[i][0]-p[i-1][0])*t, p[i-1][1] + (p[i][1]-p[i-1][1])*t];
 }
-// Shift a line sideways by px pixels so routes on the same road sit next to each other.
-// The side is chosen once per route (from its overall direction), never per segment —
-// flipping per segment is what caused zigzags on north–south roads.
+// move line sideways so routes on same road dont overlap
 function offsetLine(latlngs, px){
   if (!px || latlngs.length < 2) return latlngs;
-  // project to screen pixels and drop points closer than 2px (tiny jitter makes kinks)
+  // skip points too close to each other
   const pts = [];
   latlngs.forEach(ll => {
     const p = map.latLngToLayerPoint(ll), q = pts[pts.length-1];
     if (!q || Math.hypot(p.x-q.x, p.y-q.y) >= 2) pts.push(p);
   });
   if (pts.length < 2) return latlngs;
-  // routes drawn "backwards" (overall right-to-left) get the opposite sign,
-  // so two routes running the same road in opposite directions still land on different sides
+  // flip side if route goes right to left
   const A = pts[0], B = pts[pts.length-1];
   if (B.x - A.x < 0 || (B.x === A.x && B.y < A.y)) px = -px;
   const segN = [];
@@ -295,21 +292,21 @@ function offsetLine(latlngs, px){
   return pts.map((p, i) => {
     const a = segN[Math.max(0, i-1)], b = segN[Math.min(segN.length-1, i)];
     let nx = a[0] + b[0], ny = a[1] + b[1], l = Math.hypot(nx, ny);
-    if (l < .5){ nx = b[0]; ny = b[1]; l = 1; }       // U-turn: use the outgoing segment
-    const k = Math.min(2, 2 / l);                      // keep the gap even on bends (capped on sharp corners)
+    if (l < .5){ nx = b[0]; ny = b[1]; l = 1; }       // u-turn
+    const k = Math.min(2, 2 / l);
     return map.layerPointToLatLng([p.x + nx/2*k*px, p.y + ny/2*k*px]);
   });
 }
-// readable text on a route color (dark text on yellow, white on red)
+// black or white text depending on color
 function inkOn(hex){
   const n = parseInt(hex.slice(1), 16), r = n>>16 & 255, g = n>>8 & 255, b = n & 255;
   return (0.299*r + 0.587*g + 0.114*b) > 165 ? "#141b26" : "#ffffff";
 }
 const fmtInterval = x => !x ? "" : Number.isInteger(+x) ? `${x}` : `${Math.floor(x)}–${Math.ceil(x)}`;
 
-// =============== Simulated buses ===============
-// Same shape the GPS box will send later: {bus_id, route, lat, lng, passengers, time}
-const SIM_SPEEDUP = 10;   // buses move 10x faster on screen so the demo looks alive; ETAs use real speed
+// fake buses (until gps box works)
+// same format as gps box: {bus_id, route, lat, lng, passengers, time}
+const SIM_SPEEDUP = 10;   // faster on screen, eta uses real speed
 let buses = [];
 function makeBuses(){
   buses = [];
@@ -317,7 +314,7 @@ function makeBuses(){
     prep(r);
     const n = r.buses || 3, loop = 2 * r._len;
     for (let k=0;k<n;k++){
-      const s = loop * k / n;   // evenly spaced round the loop
+      const s = loop * k / n;   // spread evenly
       buses.push({ bus_id:`${r.name}-${k+1}`, route:r.id, d: s <= r._len ? s : loop - s, dir: s <= r._len ? 1 : -1,
         passengers: 8 + Math.floor(Math.random()*40), cap: 60 });
     }
@@ -334,7 +331,7 @@ function tick(dt){
     Object.assign(b, { lat, lng, time:new Date().toISOString() });
   });
 }
-// seconds until bus b reaches the stop at distance s, and which way it will be going then (1 = to the last stop)
+// time until bus reaches stop + direction
 function arrival(b, r, s){
   if (b.dir === 1) return s >= b.d ? { t:(s-b.d)/r._speed, dir:1 } : { t:((r._len-b.d)+(r._len-s))/r._speed, dir:-1 };
   return s <= b.d ? { t:(b.d-s)/r._speed, dir:-1 } : { t:(b.d+s)/r._speed, dir:1 };
@@ -346,7 +343,7 @@ const loadText = f => f > .8 ? "Very full" : f > .5 ? "Some seats" : "Plenty of 
 const fmtMin = s => s < 60 ? "<1" : String(Math.round(s/60));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 
-// =============== Drawing ===============
+// drawing
 let selRoute = routes[0] && routes[0].id, selStop = null, tab = "live";
 const busMarkers = {};
 const routeById = id => routes.find(x => x.id === id);
@@ -357,9 +354,9 @@ function drawRoutes(){
   const editing = tab === "edit", pickable = editing && ed.stops.length === 0;
   const GAP = 6, n = routes.length;
   const lines = routes.map((r, i) => { prep(r); return { r, ll: offsetLine(r._line, (i - (n-1)/2) * GAP) }; })
-    .filter(x => !(editing && x.r.id === ed.id));                     // the route being edited is drawn by drawEdit
+    .filter(x => !(editing && x.r.id === ed.id));
   const order = [...lines].sort((a,b) => (a.r.id===selRoute) - (b.r.id===selRoute));   // selected on top
-  // dark outline under every line first, so each color stays visible where routes share a road
+  // outline first
   order.forEach(({ r, ll }) => {
     const on = !editing && r.id === selRoute;
     L.polyline(ll, { color:casing(), weight:on?9:5.5, opacity: editing && !pickable ? .3 : 1, interactive:false }).addTo(routeLayer);
@@ -372,12 +369,12 @@ function drawRoutes(){
     else if (pickable) line.bindTooltip(`Edit route ${esc(r.name)}`, { sticky:true }).on("click", () => editRoute(r));
   });
   if (editing) return;
-  // stops of the selected route (turn points are never shown here)
+  // stops of selected route
   const r = routeById(selRoute); if (!r) return;
   const zoomedOut = map.getZoom() < 14, last = r._stops.length - 1;
   r._stops.forEach((s, i) => {
     const sel = i === selStop, end = i === 0 || i === last;
-    if (zoomedOut && !sel && !end) return;          // zoomed out: only first/last stop (+ the one you picked)
+    if (zoomedOut && !sel && !end) return;          // zoomed out = only first/last
     L.circleMarker(ll(s), { radius:sel?9:end?6:5, weight:sel||end?3:2, color:"#fff", fillColor:sel?"#141b26":r.color, fillOpacity:1, bubblingMouseEvents:false })
       .bindTooltip(esc(stopName(r, i))).on("click", () => pickStop(r.id, i)).addTo(routeLayer);
   });
@@ -388,7 +385,7 @@ function drawBuses(){
     const r = routeById(b.route); if (!r) return;
     live.add(b.bus_id);
     const main = r.id === selRoute, size = main ? [34,22] : [12,12];
-    // only the selected route's buses get a labelled icon; the rest are small dots so the map stays calm
+    // other routes = small dots
     const html = main
       ? `<div class="busicon" style="background:${r.color};color:${inkOn(r.color)};width:34px;height:22px">${esc(r.name)}<i style="background:${loadColor(loadOf(b))}"></i></div>`
       : `<div style="width:12px;height:12px;border-radius:50%;background:${r.color};border:2px solid #fff;box-shadow:0 0 0 1px ${casing()}"></div>`;
@@ -403,9 +400,9 @@ function drawBuses(){
   });
   Object.keys(busMarkers).forEach(id => { if (!live.has(id)){ busLayer.removeLayer(busMarkers[id]); delete busMarkers[id]; } });
 }
-map.on("zoomend", () => drawRoutes());   // line offsets are in pixels, so redo them after zooming
+map.on("zoomend", () => drawRoutes());   // offsets are in pixels
 
-// =============== Live panel ===============
+// live panel
 function renderChips(){
   $("routeChips").innerHTML = "";
   routes.forEach(r => {
@@ -432,7 +429,7 @@ function renderNext(){
   const all = buses.filter(b => b.route === r.id).map(b => ({ b, ...arrival(b, r, s) }));
   if (!all.length){ el.innerHTML = head + `<div class="empty">No buses on route ${esc(r.name)} right now.</div>`; return; }
   const last = r._stops.length - 1;
-  // one block per direction; at the first/last stop only the direction that leaves from it
+  // one block per direction
   const dirs = [[1, stopName(r, last)], [-1, stopName(r, 0)]].filter(([d]) => !(d === 1 && selStop === last) && !(d === -1 && selStop === 0));
   el.innerHTML = head + `<div class="stop">🚏 ${esc(stopName(r, selStop))}</div>` + dirs.map(([d, to]) => {
     const list = all.filter(x => x.dir === d).sort((a,c) => a.t - c.t);
@@ -471,7 +468,7 @@ function pickStop(routeId, i){
   if (panelState() === "min") setPanel("mid");
 }
 
-// =============== Near me ===============
+// near me
 $("nearBtn").onclick = () => {
   const go = (pos, demo) => {
     let best = null;
@@ -491,7 +488,7 @@ $("nearBtn").onclick = () => {
 };
 function toast(msg){ if (inTelegram && tg.showAlert) tg.showAlert(msg); else alert(msg); }
 
-// =============== Hokimiyat ===============
+// hokimiyat
 function countRequest(id){ demand[id] = (demand[id]||0) + 1; store.set("fb_demand", demand); renderStats(); }
 function renderStats(){
   const total = routes.reduce((a,r) => a + (demand[r.id]||0), 0);
@@ -517,7 +514,7 @@ function renderStats(){
 }
 $("resetStats").onclick = () => { demand = {}; store.set("fb_demand", demand); renderStats(); };
 
-// =============== Route editor (admin) ===============
+// editor
 let ed = { id:null, stops:[], path:null };
 let addMode = "stop", lastPopupClose = 0;
 map.on("popupclose", () => { lastPopupClose = Date.now(); });
@@ -642,7 +639,7 @@ $("exportBtn").onclick = () => {
 };
 $("importBtn").onclick = () => $("importFile").click();
 $("importFile").onchange = async e => {
-  // Adds the file's routes to yours; a route with the same id gets replaced
+  // merge by id
   try {
     const data = JSON.parse(await e.target.files[0].text()); if (!Array.isArray(data)) throw 0;
     data.forEach(r => { const i = routes.findIndex(x => x.id === r.id); if (i >= 0) routes[i] = r; else routes.push(r); });
@@ -651,7 +648,7 @@ $("importFile").onchange = async e => {
   e.target.value = "";
 };
 
-// =============== Tabs + bottom sheet ===============
+// tabs + bottom sheet
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
   tab = b.dataset.tab; haptic();
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
@@ -677,10 +674,9 @@ $("handle").addEventListener("touchend", e => {
   const s = panelState(); setPanel(dy < 0 ? (s === "min" ? "mid" : "max") : (s === "max" ? "mid" : "min"));
 });
 
-// =============== Start ===============
+// start
 function renderAll(){ drawRoutes(); drawBuses(); renderChips(); renderNext(); renderBuses(); renderStats(); }
-// Online, everyone loads routes.json. On your laptop, your unsaved-to-file edits are kept,
-// unless routes.json itself changed (new version pulled / replaced) — then the file wins.
+// load routes.json, keep local edits unless file changed
 async function loadShared(){
   try {
     const res = await fetch("routes.json", { cache:"no-store" });
