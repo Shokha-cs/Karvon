@@ -652,7 +652,7 @@
       const dark = inTelegram
         ? tg.colorScheme === "dark"
         : matchMedia("(prefers-color-scheme: dark)").matches;
-      const MAP_STYLE = dark ? "streets-v2-dark" : "streets-v2"; // other styles to try: "streets-v2", "basic-v2"
+      const MAP_STYLE = dark ? "streets-v2-white" : "streets-v2"; // other styles to try: "streets-v2", "basic-v2"
       const baseLayer = L.tileLayer(
         `https://api.maptiler.com/maps/${MAP_STYLE}/{z}/{x}/{y}{r}.png?key=${MAPTILER_KEY}`,
         {
