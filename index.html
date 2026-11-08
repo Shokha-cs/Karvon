@@ -2,178 +2,246 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Fergana Bus Map</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>Fergana Bus</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{--bg:#f4f6f9;--card:#fff;--ink:#16202e;--muted:#5f6b7d;--line:#dde2ea;--accent:#1565d8;--ok:#1d8a4e;--warn:#b86e00;--bad:#c4372c}
-@media (prefers-color-scheme:dark){:root{--bg:#0f141c;--card:#18202c;--ink:#e6ebf2;--muted:#9aa6b8;--line:#2a3443;--accent:#6ea8ff;--ok:#5fd394;--warn:#f2b552;--bad:#ff8579}}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
-#app{display:grid;grid-template-rows:auto 1fr;height:100%}
-header{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
-header h1{font-size:16px;margin:0 auto 0 0}
-.tabs{display:flex;gap:4px}
-.tabs button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
-.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-main{display:grid;grid-template-columns:1fr 330px;min-height:0}
-#map{min-height:0}
-aside{background:var(--card);border-left:1px solid var(--line);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
-@media (max-width:760px){main{grid-template-columns:1fr;grid-template-rows:1fr 42%}aside{border-left:0;border-top:1px solid var(--line)}}
-h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0}
-.row{display:flex;gap:8px;align-items:center;padding:8px;border-radius:8px;background:var(--bg);cursor:pointer}
-.row.sel{outline:2px solid var(--accent)}
-.dot{width:12px;height:12px;border-radius:50%;flex:none}
-.muted{color:var(--muted)}.small{font-size:12px}
-.grow{flex:1;min-width:0}
-.pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--card);border:1px solid var(--line);white-space:nowrap}
-.full{color:var(--bad)}.mid{color:var(--warn)}.free{color:var(--ok)}
-input,button.btn{font:inherit;color:var(--ink)}
-input[type=text]{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
-.btns{display:flex;flex-wrap:wrap;gap:6px}
-button.btn{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px;cursor:pointer}
-button.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-button.btn.danger{color:var(--bad)}
-.bar{height:10px;border-radius:5px;background:var(--accent)}
-.hint{background:var(--bg);border-radius:8px;padding:8px;font-size:13px;color:var(--muted)}
-.busicon{border-radius:8px;color:#fff;font:700 11px system-ui;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px #0006}
+/* Colors. In Telegram these get replaced by the user's Telegram theme (see applyTelegramTheme). */
+:root{--bg:#f2f4f7;--card:#ffffff;--ink:#141b26;--muted:#647085;--line:#e1e5ec;--accent:#1565d8;--accent-ink:#ffffff;
+  --ok:#1d8a4e;--warn:#c27400;--bad:#cc3a2f;--shadow:0 6px 24px rgba(15,25,40,.14)}
+@media (prefers-color-scheme:dark){:root:not([data-tg]){--bg:#0e131b;--card:#171e29;--ink:#e8edf4;--muted:#98a4b6;--line:#283241;--accent:#5c9dff;--accent-ink:#0e131b;--ok:#4fcb87;--warn:#f0b04a;--bad:#ff7d72;--shadow:0 6px 24px rgba(0,0,0,.5)}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
 [hidden]{display:none!important}
+
+#app{position:fixed;inset:0;display:grid;grid-template-columns:1fr 360px}
+#map{position:relative;z-index:0}
+.leaflet-control-attribution{font-size:10px}
+
+/* Top bar floats over the map */
+.topbar{position:absolute;top:calc(10px + env(safe-area-inset-top));left:10px;right:10px;z-index:500;display:flex;gap:8px;align-items:center;pointer-events:none}
+.brand,.tabs,.fab{pointer-events:auto;background:var(--card);box-shadow:var(--shadow);border-radius:14px}
+.brand{padding:8px 12px;font-weight:700;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.demo{font-size:11px;font-weight:600;color:var(--warn);border:1px solid currentColor;border-radius:99px;padding:1px 7px}
+.tabs{display:flex;padding:4px;gap:2px;margin-left:auto}
+.tabs button{border:0;background:transparent;border-radius:10px;padding:7px 11px;font-size:14px;font-weight:600;color:var(--muted)}
+.tabs button.on{background:var(--accent);color:var(--accent-ink)}
+.fab{position:absolute;right:10px;z-index:500;border:0;padding:11px 14px;font-weight:600;display:flex;gap:6px;align-items:center}
+#nearBtn{bottom:24px}
+
+/* Panel: side panel on desktop, bottom sheet on phones */
+#panel{background:var(--card);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;z-index:600}
+.handle{display:none}
+.pane{overflow:auto;padding:14px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+@media (max-width:760px){
+  #app{grid-template-columns:1fr}
+  #panel{position:absolute;left:0;right:0;bottom:0;height:46%;border-left:0;border-radius:18px 18px 0 0;box-shadow:var(--shadow);transition:height .25s ease;padding-bottom:env(safe-area-inset-bottom)}
+  #panel.min{height:118px}
+  #panel.max{height:86%}
+  .handle{display:block;border:0;background:transparent;padding:8px 0 2px;width:100%}
+  .handle i{display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
+  #nearBtn{bottom:calc(46% + 12px)}
+  #app.min #nearBtn{bottom:130px}
+  #app.max #nearBtn{display:none}
+  .brand .brandname{display:none}
+  .leaflet-control-zoom{display:none}
+}
+@media (prefers-reduced-motion:reduce){#panel{transition:none}}
+
+h2{margin:0;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.muted{color:var(--muted)}.small{font-size:13px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chip{flex:none;border:2px solid var(--line);background:var(--bg);border-radius:12px;padding:6px 12px;font-weight:700;display:flex;align-items:center;gap:6px}
+.chip.on{border-color:var(--c)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+
+/* Big "next bus" card */
+.next{border-radius:16px;padding:14px;background:var(--bg);display:flex;flex-direction:column;gap:10px}
+.next .stop{font-weight:700}
+.next .big{display:flex;align-items:baseline;gap:8px}
+.next .big b{font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+.load{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.load i{display:block;height:100%;border-radius:4px}
+.empty{color:var(--muted);text-align:center;padding:10px 6px}
+.list{display:flex;flex-direction:column;gap:6px}
+.item{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:var(--bg);border:0;width:100%;text-align:left}
+.item .grow{flex:1;min-width:0}
+.pill{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.free{color:var(--ok)}.mid{color:var(--warn)}.full{color:var(--bad)}
+.pill.free{background:color-mix(in srgb,var(--ok) 15%,transparent)}
+.pill.mid{background:color-mix(in srgb,var(--warn) 15%,transparent)}
+.pill.full{background:color-mix(in srgb,var(--bad) 15%,transparent)}
+
+/* Hokimiyat */
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--bg);border-radius:12px;padding:10px}
+.tile b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.tile span{font-size:12px;color:var(--muted)}
+.rstat{background:var(--bg);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.rstat .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.flag{font-size:12px;font-weight:700;color:var(--bad)}
+
+/* Editor */
+input[type=text]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+.btn{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 11px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.danger{color:var(--bad)}
+.hint{background:var(--bg);border-radius:10px;padding:10px;font-size:13px;color:var(--muted)}
+
+/* Map markers */
+.busicon{border-radius:8px;color:#fff;font:700 11px system-ui;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 5px #0007;position:relative}
+.busicon i{position:absolute;right:-5px;top:-5px;width:11px;height:11px;border-radius:50%;border:2px solid #fff}
+.me{width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 6px rgba(26,115,232,.25)}
 </style>
 </head>
 <body>
 <div id="app">
-  <header>
-    <h1>🚌 Fergana Bus</h1>
-    <div class="tabs" role="tablist">
-      <button data-tab="live" class="on">Live</button>
-      <button data-tab="edit">Add route</button>
-      <button data-tab="stats">Hokimiyat</button>
+  <div id="map">
+    <div class="topbar">
+      <div class="brand">🚌 <span class="brandname">Fergana Bus</span> <span class="demo" title="Buses are simulated until the GPS boxes are connected">Demo data</span></div>
+      <div class="tabs" role="tablist">
+        <button data-tab="live" class="on">Live</button>
+        <button data-tab="stats">Hokimiyat</button>
+        <button data-tab="edit" id="editTab" hidden>Edit</button>
+      </div>
     </div>
-  </header>
-  <main>
-    <div id="map"></div>
-    <aside>
-      <!-- LIVE -->
-      <section id="tab-live" class="tabpane">
-        <h2>Routes</h2>
-        <div id="routeList" style="display:flex;flex-direction:column;gap:6px;margin:8px 0 14px"></div>
-        <h2>Stop</h2>
-        <div id="stopInfo" class="hint" style="margin-top:8px">Tap a stop on the map to see when the next bus comes.</div>
-        <h2 style="margin-top:14px">Buses on selected route</h2>
-        <div id="busList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
-      </section>
-      <!-- EDIT -->
-      <section id="tab-edit" class="tabpane" hidden>
-        <h2>New / edit route</h2>
-        <div class="hint" style="margin:8px 0">Click the map to add stops in order. Then <b>Snap to roads</b> so the line follows real streets.</div>
-        <label class="small muted">Route number</label>
-        <input type="text" id="edName" placeholder="e.g. 11">
-        <div class="btns" style="margin-top:8px">
-          <input type="color" id="edColor" value="#1d8a4e" title="Route color">
-          <button class="btn" id="edUndo">Undo stop</button>
-          <button class="btn" id="edSnap">Snap to roads</button>
-        </div>
-        <div id="edStatus" class="small muted" style="margin:6px 0"></div>
-        <div class="btns">
-          <button class="btn primary" id="edSave">Save route</button>
-          <button class="btn" id="edClear">Clear</button>
-        </div>
-        <h2 style="margin-top:16px">Saved routes</h2>
-        <div id="edList" style="display:flex;flex-direction:column;gap:6px;margin:8px 0"></div>
-        <h2>Data</h2>
-        <div class="btns" style="margin-top:8px">
-          <button class="btn" id="exportBtn">Export JSON</button>
-          <button class="btn" id="importBtn">Import JSON</button>
-          <input type="file" id="importFile" accept=".json" hidden>
-        </div>
-      </section>
-      <!-- STATS -->
-      <section id="tab-stats" class="tabpane" hidden>
-        <h2>Demand by route</h2>
-        <div class="hint" style="margin:8px 0">Each time a passenger checks a stop, it counts as one request. Shows which routes need more buses.</div>
-        <div id="stats" style="display:flex;flex-direction:column;gap:10px"></div>
-        <div class="btns" style="margin-top:10px"><button class="btn danger" id="resetStats">Reset counts</button></div>
-      </section>
-    </aside>
-  </main>
+    <button class="fab" id="nearBtn">📍 Near me</button>
+  </div>
+
+  <div id="panel">
+    <button class="handle" id="handle" aria-label="Resize panel"><i></i></button>
+
+    <!-- LIVE: passengers -->
+    <section class="pane" id="tab-live">
+      <div class="chips" id="routeChips"></div>
+      <div class="next" id="nextCard"></div>
+      <div>
+        <h2 id="busesH">Buses</h2>
+        <div class="list" id="busList" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <!-- HOKIMIYAT: demand view -->
+    <section class="pane" id="tab-stats" hidden>
+      <div class="tiles">
+        <div class="tile"><b id="tBuses">0</b><span>buses running</span></div>
+        <div class="tile"><b id="tPass">0</b><span>passengers now</span></div>
+        <div class="tile"><b id="tReq">0</b><span>requests</span></div>
+      </div>
+      <div class="hint">A request is a passenger checking a stop. Routes with many requests and full buses need more buses.</div>
+      <div class="list" id="stats"></div>
+      <div class="btns"><button class="btn danger" id="resetStats">Reset requests</button></div>
+    </section>
+
+    <!-- EDIT: admin only -->
+    <section class="pane" id="tab-edit" hidden>
+      <div class="hint">Click the map to add stops in order, then <b>Snap to roads</b>.</div>
+      <div><span class="small muted">Route number</span><input type="text" id="edName" placeholder="e.g. 11"></div>
+      <div class="btns">
+        <input type="color" id="edColor" value="#1d8a4e" title="Route color">
+        <button class="btn" id="edUndo">Undo stop</button>
+        <button class="btn" id="edSnap">Snap to roads</button>
+      </div>
+      <div id="edStatus" class="small muted"></div>
+      <div class="btns">
+        <button class="btn primary" id="edSave">Save route</button>
+        <button class="btn" id="edClear">Clear</button>
+      </div>
+      <h2>Saved routes</h2>
+      <div class="list" id="edList"></div>
+      <h2>Data</h2>
+      <div class="btns">
+        <button class="btn" id="exportBtn">Export JSON</button>
+        <button class="btn" id="importBtn">Import JSON</button>
+        <button class="btn" id="snapAllBtn">Snap all to roads</button>
+        <input type="file" id="importFile" accept=".json" hidden>
+      </div>
+    </section>
+  </div>
 </div>
 
 <script>
-// ---------- Telegram Mini App (does nothing in a normal browser) ----------
+// =============== Telegram Mini App ===============
 const tg = window.Telegram && window.Telegram.WebApp;
-if (tg && tg.initData !== undefined) { tg.ready(); tg.expand(); }
+const inTelegram = !!(tg && tg.initData);
+function applyTelegramTheme(){
+  if (!inTelegram) return;
+  const p = tg.themeParams || {}, s = document.documentElement.style;
+  document.documentElement.setAttribute("data-tg", "");
+  if (p.bg_color) s.setProperty("--card", p.bg_color);
+  if (p.secondary_bg_color) s.setProperty("--bg", p.secondary_bg_color);
+  if (p.text_color) s.setProperty("--ink", p.text_color);
+  if (p.hint_color) s.setProperty("--muted", p.hint_color);
+  if (p.button_color) s.setProperty("--accent", p.button_color);
+  if (p.button_text_color) s.setProperty("--accent-ink", p.button_text_color);
+  if (p.section_separator_color) s.setProperty("--line", p.section_separator_color);
+}
+if (inTelegram){ tg.ready(); tg.expand(); applyTelegramTheme(); tg.onEvent("themeChanged", applyTelegramTheme); }
+const haptic = () => { try{ tg.HapticFeedback.selectionChanged(); }catch(_){} };
 
-// ---------- Storage ----------
+// Route editor only for you: on your laptop, or with ?admin=1 in the link
+const isAdmin = location.protocol === "file:" || ["localhost","127.0.0.1"].includes(location.hostname) || new URLSearchParams(location.search).has("admin");
+document.getElementById("editTab").hidden = !isAdmin;
+
+// =============== Storage ===============
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 };
-
-// Seed route: approximated from the Yandex screenshot (Chimyan trakt -> airport -> center -> Kuchkorchi).
-// Re-draw it in "Add route" + Snap to roads for exact streets.
-const SEED = [{
-  id:"r11", name:"11", color:"#1d8a4e",
-  stops:[[40.3545,71.6935],[40.3618,71.7120],[40.3640,71.7430],[40.3725,71.7640],
-         [40.3810,71.7820],[40.3905,71.7950],[40.4090,71.8120],[40.4215,71.8320]],
-  path:null
-}];
+const SEED = [{ id:"r11", name:"11", color:"#1d8a4e",
+  stops:[[40.3545,71.6935],[40.3618,71.7120],[40.3640,71.7430],[40.3725,71.7640],[40.3810,71.7820],[40.3905,71.7950],[40.4090,71.8120],[40.4215,71.8320]], path:null }];
 let routes = store.get("fb_routes", SEED);
 let demand = store.get("fb_demand", {});
 
-// ---------- Map ----------
-const map = L.map("map").setView([40.386, 71.786], 13);
-// Esri street map tiles: work even when the page is opened from file:// (OSM and CARTO block that)
+// =============== Map ===============
+const FERGANA = [40.386, 71.786];
+const map = L.map("map", { zoomControl:false }).setView(FERGANA, 13);
+L.control.zoom({ position:"bottomleft" }).addTo(map);
+// Esri tiles work even when the page is opened from file://
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
-  maxZoom: 19,
-  attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors"
+  maxZoom: 19, attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors"
 }).addTo(map);
-const routeLayer = L.layerGroup().addTo(map);
-const busLayer = L.layerGroup().addTo(map);
-const editLayer = L.layerGroup().addTo(map);
+// clicks on the top bar / Near me button shouldn't reach the map (would add stops in Edit)
+document.querySelectorAll(".topbar,.fab").forEach(el => { L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); });
+const routeLayer = L.layerGroup().addTo(map), busLayer = L.layerGroup().addTo(map), editLayer = L.layerGroup().addTo(map);
+let meMarker = null;
 
-// ---------- Geometry helpers ----------
+// =============== Geometry ===============
 const R = 6371000, rad = d => d*Math.PI/180;
 function dist(a, b){
   const dLat = rad(b[0]-a[0]), dLng = rad(b[1]-a[1]);
   const h = Math.sin(dLat/2)**2 + Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLng/2)**2;
   return 2*R*Math.asin(Math.sqrt(h));
 }
-// cumulative distance along a polyline
-function prep(route){
-  const p = route.path && route.path.length > 1 ? route.path : route.stops;
-  const cum = [0];
+function prep(r){
+  const p = r.path && r.path.length > 1 ? r.path : r.stops, cum = [0];
   for (let i=1;i<p.length;i++) cum.push(cum[i-1] + dist(p[i-1], p[i]));
-  route._line = p; route._cum = cum; route._len = cum[cum.length-1];
-  // where each stop sits along the line
-  route._stopAt = route.stops.map(s => {
-    let best = 0, bd = Infinity;
-    p.forEach((q,i) => { const d = dist(s,q); if (d < bd){ bd = d; best = i; } });
-    return cum[best];
-  });
+  r._line = p; r._cum = cum; r._len = cum[cum.length-1];
+  r._stopAt = r.stops.map(s => { let best=0, bd=Infinity; p.forEach((q,i)=>{ const d=dist(s,q); if(d<bd){bd=d;best=i;} }); return cum[best]; });
 }
-function pointAt(route, d){
-  const p = route._line, c = route._cum;
-  d = Math.max(0, Math.min(route._len, d));
+function pointAt(r, d){
+  const p = r._line, c = r._cum; d = Math.max(0, Math.min(r._len, d));
   let i = 1; while (i < c.length-1 && c[i] < d) i++;
-  const seg = c[i]-c[i-1] || 1, t = (d - c[i-1]) / seg;
+  const t = (d - c[i-1]) / ((c[i]-c[i-1]) || 1);
   return [p[i-1][0] + (p[i][0]-p[i-1][0])*t, p[i-1][1] + (p[i][1]-p[i-1][1])*t];
 }
 
-// ---------- Simulated buses (later replaced by real GPS box data) ----------
-// Same shape the hardware will send: {bus_id, route, lat, lng, passengers, time}
-const SPEED = 6; // m/s ≈ 22 km/h city average
+// =============== Simulated buses ===============
+// Same shape the GPS box will send later: {bus_id, route, lat, lng, passengers, time}
+const SPEED = 6;          // m/s ≈ 22 km/h city average, used for ETAs
+const SIM_SPEEDUP = 10;   // buses move 10x faster on screen so the demo looks alive
 let buses = [];
 function makeBuses(){
   buses = [];
   routes.forEach(r => {
     prep(r);
     const n = r._len > 6000 ? 3 : 2;
-    for (let k=0;k<n;k++){
-      buses.push({ bus_id:`${r.name}-${k+1}`, route:r.id, d:r._len*(k/n), dir:k%2?-1:1,
-                   passengers: 8 + Math.floor(Math.random()*30), cap: 60 });
-    }
+    for (let k=0;k<n;k++) buses.push({ bus_id:`${r.name}-${k+1}`, route:r.id, d:r._len*(k/n), dir:k%2?-1:1,
+      passengers: 8 + Math.floor(Math.random()*40), cap: 60 });
   });
 }
 function tick(dt){
@@ -184,103 +252,155 @@ function tick(dt){
     if (b.d <= 0){ b.d = 0; b.dir = 1; }
     if (Math.random() < dt/6) b.passengers = Math.max(0, Math.min(b.cap, b.passengers + Math.round((Math.random()-.45)*8)));
     const [lat,lng] = pointAt(r, b.d);
-    Object.assign(b, { lat, lng, time: new Date().toISOString() });
+    Object.assign(b, { lat, lng, time:new Date().toISOString() });
   });
 }
-// seconds until bus b reaches distance s on its route (bus bounces end to end)
 function etaTo(b, r, s){
-  let m;
-  if (b.dir === 1) m = s >= b.d ? s - b.d : (r._len - b.d) + (r._len - s);
-  else             m = s <= b.d ? b.d - s : b.d + s;
+  const m = b.dir === 1 ? (s >= b.d ? s-b.d : (r._len-b.d)+(r._len-s)) : (s <= b.d ? b.d-s : b.d+s);
   return m / SPEED;
 }
-const loadClass = b => b.passengers/b.cap > .8 ? "full" : b.passengers/b.cap > .5 ? "mid" : "free";
-const fmtMin = s => s < 60 ? "<1 min" : Math.round(s/60) + " min";
+const loadOf = b => b.passengers / b.cap;
+const loadClass = f => f > .8 ? "full" : f > .5 ? "mid" : "free";
+const loadColor = f => getComputedStyle(document.documentElement).getPropertyValue(f > .8 ? "--bad" : f > .5 ? "--warn" : "--ok");
+const loadText = f => f > .8 ? "Very full" : f > .5 ? "Some seats" : "Plenty of seats";
+const fmtMin = s => s < 60 ? "<1" : String(Math.round(s/60));
 
-// ---------- Drawing ----------
+// =============== Drawing ===============
 let selRoute = routes[0] && routes[0].id, selStop = null;
 const busMarkers = {};
+const routeById = id => routes.find(x => x.id === id);
 
 function drawRoutes(){
   routeLayer.clearLayers();
-  routes.forEach(r => {
+  // draw the selected route last so it sits on top
+  [...routes].sort((a,b) => (a.id===selRoute) - (b.id===selRoute)).forEach(r => {
     prep(r);
     const on = r.id === selRoute;
-    L.polyline(r._line, { color:r.color, weight:on?6:4, opacity:on?.95:.45 })
-      .on("click", () => selectRoute(r.id)).addTo(routeLayer);
+    L.polyline(r._line, { color:r.color, weight:on?7:4, opacity:on?.95:.35 }).on("click", () => selectRoute(r.id)).addTo(routeLayer);
+    if (!on) return;
     r.stops.forEach((s, i) => {
-      L.circleMarker(s, { radius:on?7:5, color:"#fff", weight:2, fillColor:r.color, fillOpacity:1 })
-        .bindTooltip(`Route ${r.name} · stop ${i+1}`)
-        .on("click", () => { selectRoute(r.id); selStop = i; countRequest(r.id); renderStop(); })
-        .addTo(routeLayer);
+      const sel = i === selStop;
+      L.circleMarker(s, { radius:sel?10:7, color:"#fff", weight:3, fillColor:sel?"#141b26":r.color, fillOpacity:1 })
+        .bindTooltip(`Stop ${i+1}`).on("click", () => pickStop(r.id, i)).addTo(routeLayer);
     });
   });
 }
 function drawBuses(){
   const live = new Set();
   buses.forEach(b => {
-    const r = routes.find(x => x.id === b.route); if (!r) return;
+    const r = routeById(b.route); if (!r) return;
     live.add(b.bus_id);
-    const html = `<div class="busicon" style="background:${r.color};width:34px;height:22px">${r.name}</div>`;
+    const faded = r.id !== selRoute ? "opacity:.55;" : "";
+    const html = `<div class="busicon" style="background:${r.color};width:34px;height:22px;${faded}">${r.name}<i style="background:${loadColor(loadOf(b))}"></i></div>`;
     if (!busMarkers[b.bus_id]){
       busMarkers[b.bus_id] = L.marker([b.lat,b.lng], { icon:L.divIcon({ html, className:"", iconSize:[34,22] }) })
         .on("click", () => selectRoute(r.id)).addTo(busLayer);
+      busMarkers[b.bus_id]._html = html;
     }
-    busMarkers[b.bus_id].setLatLng([b.lat,b.lng])
-      .bindTooltip(`Bus ${b.bus_id}: ${b.passengers}/${b.cap} passengers`);
+    const m = busMarkers[b.bus_id];
+    m.setLatLng([b.lat,b.lng]);
+    if (m._html !== html){ m.setIcon(L.divIcon({ html, className:"", iconSize:[34,22] })); m._html = html; }
   });
   Object.keys(busMarkers).forEach(id => { if (!live.has(id)){ busLayer.removeLayer(busMarkers[id]); delete busMarkers[id]; } });
 }
 
-// ---------- Side panel ----------
+// =============== Live panel ===============
 const $ = id => document.getElementById(id);
-function renderRouteList(){
-  $("routeList").innerHTML = "";
+function renderChips(){
+  $("routeChips").innerHTML = "";
   routes.forEach(r => {
-    const n = buses.filter(b => b.route === r.id).length;
-    const row = document.createElement("div");
-    row.className = "row" + (r.id === selRoute ? " sel" : "");
-    row.innerHTML = `<span class="dot" style="background:${r.color}"></span><b class="grow">Route ${r.name}</b><span class="muted small">${n} buses · ${(r._len/1000).toFixed(1)} km</span>`;
-    row.onclick = () => selectRoute(r.id);
-    $("routeList").append(row);
+    const b = document.createElement("button");
+    b.className = "chip" + (r.id === selRoute ? " on" : ""); b.style.setProperty("--c", r.color);
+    b.innerHTML = `<span class="dot"></span>${r.name}`;
+    b.onclick = () => { selectRoute(r.id); map.fitBounds(L.latLngBounds(r._line), { padding:[40,40] }); };
+    $("routeChips").append(b);
   });
 }
+function renderNext(){
+  const r = routeById(selRoute), el = $("nextCard");
+  if (!r){ el.innerHTML = `<div class="empty">No routes yet.</div>`; return; }
+  if (selStop == null){ el.innerHTML = `<div class="empty">Tap a stop on the route, or press <b>📍 Near me</b>, to see when the next bus comes.</div>`; return; }
+  const s = r._stopAt[selStop];
+  const list = buses.filter(b => b.route === r.id).map(b => ({ b, t:etaTo(b, r, s) })).sort((a,c) => a.t - c.t);
+  if (!list.length){ el.innerHTML = `<div class="empty">No buses on route ${r.name} right now.</div>`; return; }
+  const n = list[0], f = loadOf(n.b);
+  const later = list.slice(1).map(x => `${fmtMin(x.t)} min`).join(", ");
+  el.innerHTML = `
+    <div class="stop"><span class="dot" style="--c:${r.color};display:inline-block;margin-right:6px"></span>Route ${r.name} · Stop ${selStop+1}</div>
+    <div class="big"><b>${fmtMin(n.t)}</b><span>min · next bus ${n.b.bus_id}</span></div>
+    <div><div class="load"><i style="width:${Math.round(f*100)}%;background:${loadColor(f)}"></i></div>
+      <div class="small" style="margin-top:4px"><span class="${loadClass(f)}"><b>${loadText(f)}</b></span> <span class="muted">· ${n.b.passengers}/${n.b.cap} passengers</span></div></div>
+    ${later ? `<div class="small muted">After that: ${later}</div>` : ""}`;
+}
 function renderBuses(){
-  const r = routes.find(x => x.id === selRoute);
-  $("busList").innerHTML = r ? "" : `<div class="hint">No route selected.</div>`;
+  const r = routeById(selRoute);
+  $("busesH").textContent = r ? `Buses on route ${r.name}` : "Buses";
+  $("busList").innerHTML = "";
   if (!r) return;
   buses.filter(b => b.route === r.id).forEach(b => {
-    const row = document.createElement("div"); row.className = "row";
-    row.innerHTML = `<span class="dot" style="background:${r.color}"></span><span class="grow">Bus ${b.bus_id} <span class="muted small">${b.dir>0?"→ forward":"← back"}</span></span><span class="pill ${loadClass(b)}">${b.passengers}/${b.cap}</span>`;
-    row.onclick = () => map.panTo([b.lat,b.lng]);
+    const f = loadOf(b), row = document.createElement("button");
+    row.className = "item";
+    row.innerHTML = `<span class="dot" style="--c:${r.color}"></span><span class="grow"><b>${b.bus_id}</b> <span class="small muted">${b.dir>0?"→ to end":"← to start"}</span></span><span class="pill ${loadClass(f)}">${b.passengers}/${b.cap}</span>`;
+    row.onclick = () => { map.panTo([b.lat,b.lng]); setPanel("min"); };
     $("busList").append(row);
   });
 }
-function renderStop(){
-  const r = routes.find(x => x.id === selRoute);
-  if (!r || selStop == null || !r.stops[selStop]){ $("stopInfo").textContent = "Tap a stop on the map to see when the next bus comes."; return; }
-  const s = r._stopAt[selStop];
-  const list = buses.filter(b => b.route === r.id).map(b => ({ b, t:etaTo(b, r, s) })).sort((a,c) => a.t - c.t);
-  $("stopInfo").innerHTML = `<b>Route ${r.name} · stop ${selStop+1}</b><br>` + (list.length
-    ? list.map(x => `Bus ${x.b.bus_id}: <b>${fmtMin(x.t)}</b> · <span class="${loadClass(x.b)}">${x.b.passengers} passengers</span>`).join("<br>")
-    : "No buses on this route.");
+function selectRoute(id){
+  if (selRoute !== id){ selRoute = id; selStop = null; haptic(); }
+  drawRoutes(); drawBuses(); renderChips(); renderNext(); renderBuses(); renderStats();
 }
-function selectRoute(id){ if (selRoute !== id){ selRoute = id; selStop = null; } drawRoutes(); renderRouteList(); renderBuses(); renderStop(); }
+function pickStop(routeId, i){
+  selRoute = routeId; selStop = i; haptic();
+  countRequest(routeId);
+  drawRoutes(); drawBuses(); renderChips(); renderNext(); renderBuses();
+  if (panelState() === "min") setPanel("mid");
+}
 
-// ---------- Demand (Hokimiyat view) ----------
+// =============== Near me ===============
+$("nearBtn").onclick = () => {
+  const go = (pos, demo) => {
+    let best = null;
+    routes.forEach(r => r.stops.forEach((s,i) => { const d = dist(pos, s); if (!best || d < best.d) best = { r, i, d }; }));
+    if (!best) return;
+    if (meMarker) map.removeLayer(meMarker);
+    meMarker = L.marker(pos, { icon:L.divIcon({ html:'<div class="me"></div>', className:"", iconSize:[18,18] }) }).addTo(map);
+    map.fitBounds(L.latLngBounds([pos, best.r.stops[best.i]]), { padding:[80,80], maxZoom:16 });
+    pickStop(best.r.id, best.i);
+    if (demo) toast("You're not in Fergana, so this uses a demo spot in the city center.");
+  };
+  const demo = () => go(FERGANA, true);
+  if (!navigator.geolocation) return demo();
+  navigator.geolocation.getCurrentPosition(
+    p => { const pos = [p.coords.latitude, p.coords.longitude]; dist(pos, FERGANA) > 25000 ? demo() : go(pos, false); },
+    () => demo(), { enableHighAccuracy:true, timeout:8000 });
+};
+function toast(msg){ if (inTelegram && tg.showAlert) tg.showAlert(msg); else alert(msg); }
+
+// =============== Hokimiyat ===============
 function countRequest(id){ demand[id] = (demand[id]||0) + 1; store.set("fb_demand", demand); renderStats(); }
 function renderStats(){
-  const max = Math.max(1, ...routes.map(r => demand[r.id]||0));
-  $("stats").innerHTML = routes.map(r => {
-    const v = demand[r.id]||0, avg = buses.filter(b=>b.route===r.id);
-    const load = avg.length ? Math.round(avg.reduce((a,b)=>a+b.passengers/b.cap,0)/avg.length*100) : 0;
-    return `<div><div style="display:flex;justify-content:space-between"><b>Route ${r.name}</b><span class="muted small">${v} requests · ${load}% full</span></div>
-      <div style="background:var(--bg);border-radius:5px;margin-top:4px"><div class="bar" style="width:${v/max*100}%;background:${r.color}"></div></div></div>`;
-  }).join("") || `<div class="hint">No routes yet.</div>`;
+  const total = routes.reduce((a,r) => a + (demand[r.id]||0), 0);
+  $("tBuses").textContent = buses.length;
+  $("tPass").textContent = buses.reduce((a,b) => a + b.passengers, 0);
+  $("tReq").textContent = total;
+  const rows = routes.map(r => {
+    const bs = buses.filter(b => b.route === r.id);
+    const load = bs.length ? bs.reduce((a,b) => a + loadOf(b), 0) / bs.length : 0;
+    return { r, req:demand[r.id]||0, load, n:bs.length };
+  }).sort((a,b) => b.req - a.req || b.load - a.load);
+  const max = Math.max(1, ...rows.map(x => x.req));
+  $("stats").innerHTML = rows.map(x => {
+    const busy = x.load > .7 || (total >= 5 && x.req / total > .5);
+    return `<div class="rstat">
+      <div class="top"><b><span class="dot" style="--c:${x.r.color};display:inline-block;margin-right:6px"></span>Route ${x.r.name}</b>${busy ? `<span class="flag">⚠ Add buses</span>` : ""}</div>
+      <div class="small muted">${x.req} request${x.req===1?"":"s"} · ${x.n} buses · ${Math.round(x.load*100)}% full on average</div>
+      <div class="load"><i style="width:${x.req/max*100}%;background:${x.r.color}"></i></div>
+    </div>`;
+  }).join("") || `<div class="empty">No routes yet.</div>`;
 }
 $("resetStats").onclick = () => { demand = {}; store.set("fb_demand", demand); renderStats(); };
 
-// ---------- Route editor ----------
+// =============== Route editor (admin) ===============
 let ed = { id:null, stops:[], path:null };
 function drawEdit(){
   editLayer.clearLayers();
@@ -296,17 +416,26 @@ map.on("click", e => {
 $("edUndo").onclick = () => { ed.stops.pop(); ed.path = null; drawEdit(); };
 $("edClear").onclick = () => { ed = { id:null, stops:[], path:null }; $("edName").value = ""; drawEdit(); };
 $("edColor").oninput = drawEdit;
+async function snap(stops){
+  const coords = stops.map(s => `${s[1]},${s[0]}`).join(";");
+  const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
+  const j = await res.json();
+  if (!j.routes || !j.routes[0]) throw new Error(j.code || "no route");
+  return j.routes[0].geometry.coordinates.map(([lng,lat]) => [lat,lng]);
+}
 $("edSnap").onclick = async () => {
   if (ed.stops.length < 2) return $("edStatus").textContent = "Add at least 2 stops first.";
   $("edStatus").textContent = "Snapping to roads…";
-  try {
-    const coords = ed.stops.map(s => `${s[1]},${s[0]}`).join(";");
-    const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
-    const j = await res.json();
-    if (!j.routes || !j.routes[0]) throw new Error(j.code || "no route");
-    ed.path = j.routes[0].geometry.coordinates.map(([lng,lat]) => [lat,lng]);
-    drawEdit();
-  } catch(err){ $("edStatus").textContent = "Couldn't reach the road server (" + err.message + "). Saved route will use straight lines."; }
+  try { ed.path = await snap(ed.stops); drawEdit(); }
+  catch(err){ $("edStatus").textContent = "Couldn't reach the road server (" + err.message + "). Saved route will use straight lines."; }
+};
+$("snapAllBtn").onclick = async () => {
+  const todo = routes.filter(r => !r.path);
+  if (!todo.length) return $("edStatus").textContent = "All routes already follow roads.";
+  let ok = 0;
+  for (const r of todo){ $("edStatus").textContent = `Snapping route ${r.name}…`; try { r.path = await snap(r.stops); ok++; } catch(_){} }
+  saveRoutes();
+  $("edStatus").textContent = `Snapped ${ok} of ${todo.length} routes.` + (ok < todo.length ? " Try again for the rest." : "");
 };
 $("edSave").onclick = () => {
   const name = $("edName").value.trim();
@@ -315,23 +444,24 @@ $("edSave").onclick = () => {
   const r = { id: ed.id || "r" + Date.now(), name, color:$("edColor").value, stops:ed.stops, path:ed.path };
   const i = routes.findIndex(x => x.id === r.id);
   if (i >= 0) routes[i] = r; else routes.push(r);
-  saveRoutes(); selRoute = r.id; $("edClear").onclick();
+  selRoute = r.id; saveRoutes(); $("edClear").onclick();
 };
 function renderEdList(){
   $("edList").innerHTML = "";
   routes.forEach(r => {
-    const row = document.createElement("div"); row.className = "row";
-    row.innerHTML = `<span class="dot" style="background:${r.color}"></span><b class="grow">Route ${r.name}</b>`;
+    const row = document.createElement("div"); row.className = "item";
+    row.innerHTML = `<span class="dot" style="--c:${r.color}"></span><b class="grow">Route ${r.name}</b>`;
     const e = document.createElement("button"); e.className = "btn"; e.textContent = "Edit";
     e.onclick = () => { ed = { id:r.id, stops:r.stops.map(s=>[...s]), path:r.path }; $("edName").value = r.name; $("edColor").value = r.color; drawEdit(); map.fitBounds(L.latLngBounds(r.stops), { padding:[30,30] }); };
     const d = document.createElement("button"); d.className = "btn danger"; d.textContent = "Delete";
-    d.onclick = () => { if (confirm(`Delete route ${r.name}?`)){ routes = routes.filter(x => x.id !== r.id); saveRoutes(); } };
+    d.onclick = () => { if (confirm(`Delete route ${r.name}?`)){ routes = routes.filter(x => x.id !== r.id); if (selRoute === r.id) selRoute = routes[0] && routes[0].id; saveRoutes(); } };
     row.append(e, d); $("edList").append(row);
   });
 }
 function saveRoutes(){
   store.set("fb_routes", routes.map(({id,name,color,stops,path}) => ({id,name,color,stops,path})));
-  makeBuses(); tick(0); drawRoutes(); drawBuses(); renderRouteList(); renderBuses(); renderEdList(); renderStats();
+  if (!routeById(selRoute)) selRoute = routes[0] && routes[0].id;
+  selStop = null; makeBuses(); tick(0); renderAll(); renderEdList();
 }
 $("exportBtn").onclick = () => {
   const blob = new Blob([JSON.stringify(routes.map(({id,name,color,stops,path}) => ({id,name,color,stops,path})), null, 2)], { type:"application/json" });
@@ -339,24 +469,43 @@ $("exportBtn").onclick = () => {
 };
 $("importBtn").onclick = () => $("importFile").click();
 $("importFile").onchange = async e => {
-  try { const data = JSON.parse(await e.target.files[0].text()); if (!Array.isArray(data)) throw 0; routes = data; saveRoutes(); }
-  catch(_){ alert("That file isn't a routes.json export."); }
+  // Adds the file's routes to yours; a route with the same id gets replaced
+  try {
+    const data = JSON.parse(await e.target.files[0].text()); if (!Array.isArray(data)) throw 0;
+    data.forEach(r => { const i = routes.findIndex(x => x.id === r.id); if (i >= 0) routes[i] = r; else routes.push(r); });
+    saveRoutes();
+  } catch(_){ alert("That file isn't a routes.json export."); }
+  e.target.value = "";
 };
 
-// ---------- Tabs ----------
+// =============== Tabs + bottom sheet ===============
 let tab = "live";
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
-  tab = b.dataset.tab;
+  tab = b.dataset.tab; haptic();
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
-  document.querySelectorAll(".tabpane").forEach(p => p.hidden = p.id !== "tab-" + tab);
+  document.querySelectorAll(".pane").forEach(p => p.hidden = p.id !== "tab-" + tab);
   editLayer.clearLayers(); if (tab === "edit") drawEdit();
   map.getContainer().style.cursor = tab === "edit" ? "crosshair" : "";
-  setTimeout(() => map.invalidateSize(), 50);
+  if (panelState() === "min") setPanel("mid");
+});
+const panelState = () => $("panel").classList.contains("min") ? "min" : $("panel").classList.contains("max") ? "max" : "mid";
+function setPanel(s){
+  ["min","max"].forEach(c => { $("panel").classList.toggle(c, s === c); $("app").classList.toggle(c, s === c); });
+  setTimeout(() => map.invalidateSize(), 260);
+}
+$("handle").onclick = () => setPanel({ min:"mid", mid:"max", max:"min" }[panelState()]);
+// swipe the handle up/down
+let y0 = null;
+$("handle").addEventListener("touchstart", e => { y0 = e.touches[0].clientY; }, { passive:true });
+$("handle").addEventListener("touchend", e => {
+  if (y0 == null) return; const dy = e.changedTouches[0].clientY - y0; y0 = null;
+  if (Math.abs(dy) < 25) return;
+  const s = panelState(); setPanel(dy < 0 ? (s === "min" ? "mid" : "max") : (s === "max" ? "mid" : "min"));
 });
 
-// ---------- Start ----------
-// If routes.json sits next to this page (online), everyone loads the same routes from it.
-// Opened from file:// the fetch fails, so it falls back to routes saved in this browser.
+// =============== Start ===============
+function renderAll(){ drawRoutes(); drawBuses(); renderChips(); renderNext(); renderBuses(); renderStats(); }
+// Online, everyone loads the same routes from routes.json. From file:// this fails and the browser's own routes are used.
 async function loadShared(){
   try {
     const res = await fetch("routes.json", { cache:"no-store" });
@@ -365,13 +514,12 @@ async function loadShared(){
     if (Array.isArray(data) && data.length){ routes = data; selRoute = routes[0].id; saveRoutes(); }
   } catch(_){}
 }
-makeBuses(); tick(0); drawRoutes(); drawBuses(); renderRouteList(); renderBuses(); renderEdList(); renderStats();
-loadShared();
-let last = performance.now(), uiTimer = 0;
+makeBuses(); tick(0); renderAll(); renderEdList(); loadShared();
+let last = performance.now(), n = 0;
 setInterval(() => {
-  const now = performance.now(), dt = (now - last) / 1000 * 10; // 10x speed so the demo moves visibly
-  last = now; tick(dt); drawBuses();
-  if ((uiTimer += 1) % 4 === 0){ renderBuses(); renderStop(); }
+  const now = performance.now(); tick((now - last) / 1000 * SIM_SPEEDUP); last = now;
+  drawBuses();
+  if (++n % 4 === 0){ renderNext(); renderBuses(); if (tab === "stats") renderStats(); }
 }, 250);
 </script>
 </body>
