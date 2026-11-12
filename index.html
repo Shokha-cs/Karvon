@@ -13,6 +13,8 @@
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+    <script src="config.js"></script>
     <style>
       /* light by default, dark via button */
       :root {
@@ -505,6 +507,72 @@
         border: 3px solid #fff;
         box-shadow: 0 0 0 6px rgba(26, 115, 232, 0.25);
       }
+      /* login screen */
+      .auth {
+        position: fixed;
+        inset: 0;
+        z-index: 5000;
+        background: var(--bg);
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        overflow: auto;
+      }
+      .auth[hidden] {
+        display: none;
+      }
+      .authcard {
+        width: 100%;
+        max-width: 360px;
+        background: var(--card);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 22px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .authcard h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+      .authcard input {
+        width: 100%;
+        padding: 11px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--bg);
+        color: var(--ink);
+        font: inherit;
+      }
+      .authcard .btn {
+        width: 100%;
+        padding: 11px;
+        font: inherit;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .authcard .btn.primary {
+        color: var(--accent-ink);
+      }
+      .authcard .or {
+        text-align: center;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .linkbtn {
+        border: 0;
+        background: none;
+        color: var(--accent);
+        font: inherit;
+        font-size: 14px;
+      }
+      #authMsg:empty {
+        display: none;
+      }
+      #authMsg.err {
+        color: var(--bad);
+      }
     </style>
   </head>
   <body>
@@ -515,6 +583,7 @@
             🚌 <span class="brandname">Fergana Bus</span>
             <span
               class="demo"
+              id="liveBadge"
               title="Buses are simulated until the GPS boxes are connected"
               >Demo data</span
             >
@@ -526,6 +595,9 @@
           </div>
           <button class="iconbtn" id="themeBtn" aria-label="Dark mode">
             🌙
+          </button>
+          <button class="iconbtn" id="userBtn" aria-label="Account" hidden>
+            👤
           </button>
         </div>
         <button class="fab" id="nearBtn">📍 Near me</button>
@@ -642,6 +714,34 @@
             <input type="file" id="importFile" accept=".json" hidden />
           </div>
         </section>
+      </div>
+    </div>
+
+    <!-- login screen (shown by auth.js) -->
+    <div class="auth" id="auth" hidden>
+      <div class="authcard">
+        <h1>🚌 Fergana Bus</h1>
+        <div class="small muted" id="authTitle">Log in to see live buses</div>
+        <div class="small" id="authMsg"></div>
+        <div id="authForm">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <button class="btn primary" id="tgLogin" hidden>
+              ✈️ Continue with Telegram
+            </button>
+            <button class="btn" id="googleLogin">🔵 Continue with Google</button>
+            <div class="or">or with email</div>
+            <input id="aName" type="text" placeholder="Full name" hidden />
+            <input id="aEmail" type="email" placeholder="Email" autocomplete="email" />
+            <input
+              id="aPass"
+              type="password"
+              placeholder="Password (6+ characters)"
+              autocomplete="current-password"
+            />
+            <button class="btn primary" id="aSubmit">Log in</button>
+            <button class="linkbtn" id="aSwitch">No account? Sign up</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -932,6 +1032,7 @@
       }
       function tick(dt) {
         buses.forEach((b) => {
+          if (b.live) return; // real GPS bus: live.js moves it
           const r = routes.find((x) => x.id === b.route);
           if (!r) return;
           b.d += b.dir * r._speed * dt;
@@ -965,7 +1066,9 @@
           ? { t: (b.d - s) / r._speed, dir: -1 }
           : { t: (b.d + s) / r._speed, dir: 1 };
       }
-      const loadOf = (b) => b.passengers / b.cap;
+      // buses to show: simulated buses on a route with a real GPS box are hidden
+      const visible = () => buses.filter((b) => !b.hide);
+      const loadOf = (b) => Math.min(1, b.passengers / b.cap);
       const loadClass = (f) => (f > 0.8 ? "full" : f > 0.5 ? "mid" : "free");
       const loadColor = (f) =>
         getComputedStyle(document.documentElement).getPropertyValue(
@@ -1054,7 +1157,7 @@
       }
       function drawBuses() {
         const live = new Set();
-        buses.forEach((b) => {
+        visible().forEach((b) => {
           const r = routeById(b.route);
           if (!r) return;
           live.add(b.bus_id);
@@ -1062,7 +1165,7 @@
             size = main ? [34, 22] : [12, 12];
           // other routes = small dots
           const html = main
-            ? `<div class="busicon" style="background:${r.color};color:${inkOn(r.color)};width:34px;height:22px">${esc(r.name)}<i style="background:${loadColor(loadOf(b))}"></i></div>`
+            ? `<div class="busicon" style="background:${r.color};color:${inkOn(r.color)};width:34px;height:22px${b.live ? ";outline:3px solid var(--ok);outline-offset:2px" : ""}">${esc(r.name)}<i style="background:${loadColor(loadOf(b))}"></i></div>`
             : `<div style="width:12px;height:12px;border-radius:50%;background:${r.color};border:2px solid #fff;box-shadow:0 0 0 1px ${casing()}"></div>`;
           if (!busMarkers[b.bus_id]) {
             busMarkers[b.bus_id] = L.marker([b.lat, b.lng], {
@@ -1127,7 +1230,7 @@
           return;
         }
         const s = r._stopAt[selStop];
-        const all = buses
+        const all = visible()
           .filter((b) => b.route === r.id)
           .map((b) => ({ b, ...arrival(b, r, s) }));
         if (!all.length) {
@@ -1173,7 +1276,7 @@
         if (!r) return;
         const first = esc(stopName(r, 0)),
           lastStop = esc(stopName(r, r._stops.length - 1));
-        buses
+        visible()
           .filter((b) => b.route === r.id)
           .forEach((b) => {
             const f = loadOf(b),
@@ -1262,10 +1365,12 @@
       function countRequest(id) {
         demand[id] = (demand[id] || 0) + 1;
         store.set("fb_demand", demand);
+        if (window.onStopRequest) window.onStopRequest(id, selStop); // save to database (live.js)
         renderStats();
       }
       function renderStats() {
         const total = routes.reduce((a, r) => a + (demand[r.id] || 0), 0);
+        const buses = visible();
         $("tBuses").textContent = buses.length;
         $("tPass").textContent = buses.reduce((a, b) => a + b.passengers, 0);
         $("tReq").textContent = total;
@@ -1684,5 +1789,7 @@
         }
       }, 250);
     </script>
+    <script src="auth.js"></script>
+    <script src="live.js"></script>
   </body>
 </html>
