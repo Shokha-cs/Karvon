@@ -10,6 +10,7 @@ WEBAPP_URL = os.environ["WEBAPP_URL"]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[KeyboardButton("🗺 Open bus map", web_app=WebAppInfo(url=WEBAPP_URL))]]
+    assert update.message is not None
     await update.message.reply_text(
         "Salom! Avtobuslar qayerda, nechta odam bor va qachon kelishini xaritada ko'ring.",
         reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True),
