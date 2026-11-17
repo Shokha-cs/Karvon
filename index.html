@@ -1332,13 +1332,16 @@
           const r = routes.find((x) => x.id === b.route);
           if (!r) return;
           b.d += b.dir * r._speed * dt;
+          // end of route: turn around, everyone gets off
           if (b.d >= r._len) {
             b.d = r._len;
             b.dir = -1;
+            b.passengers = 0;
           }
           if (b.d <= 0) {
             b.d = 0;
             b.dir = 1;
+            b.passengers = 0;
           }
           if (Math.random() < dt / 6)
             b.passengers = Math.max(

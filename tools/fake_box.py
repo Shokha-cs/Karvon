@@ -71,9 +71,10 @@ def main():
             else:
                 step -= seg - pos
                 pos, i = 0.0, i + 1
-                if i >= len(line) - 1:  # turn around
+                if i >= len(line) - 1:  # end of route: turn around, everyone gets off
                     line.reverse()
                     i = 0
+                    passengers = 0
         seg = dist(line[i], line[i + 1]) or 1
         t = pos / seg
         lat = line[i][0] + (line[i + 1][0] - line[i][0]) * t
