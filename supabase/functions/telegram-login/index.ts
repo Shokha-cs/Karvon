@@ -39,7 +39,7 @@ export async function checkTelegram(initData: string, botToken: string) {
   return JSON.parse(p.get("user") || "null");
 }
 
-if (import.meta.main) Deno.serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const { initData } = await req.json();
@@ -76,7 +76,7 @@ if (import.meta.main) Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: tg.id,
-        text: `🔐 You logged in to Fergana Bus as ${prof?.role ?? "passenger"}.`,
+        text: `🔐 You logged in to Karvon as ${prof?.role ?? "passenger"}.`,
       }),
     }).catch(() => {});
 

@@ -4,7 +4,8 @@ import os
 
 import httpx
 from dotenv import load_dotenv
-from telegram import (KeyboardButton, MenuButtonWebApp, ReplyKeyboardMarkup,
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
+                      KeyboardButton, MenuButtonWebApp, ReplyKeyboardMarkup,
                       Update, WebAppInfo)
 from telegram.constants import ChatAction
 from telegram.ext import (Application, CommandHandler, ContextTypes,
@@ -24,11 +25,12 @@ if SERVICE_KEY.startswith("eyJ"):  # old jwt key
     HEADERS["Authorization"] = f"Bearer {SERVICE_KEY}"
 
 
+# map is NOT a keyboard button: those don't get initData, so telegram login fails
+MAP_BUTTON = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Open bus map", web_app=WebAppInfo(url=WEBAPP_URL))]])
+
+
 def keyboard(has_phone: bool) -> ReplyKeyboardMarkup:
-    rows = [
-        [KeyboardButton("🗺 Open bus map", web_app=WebAppInfo(url=WEBAPP_URL))],
-        [KeyboardButton("📍 Send my location", request_location=True)],
-    ]
+    rows = [[KeyboardButton("📍 Send my location", request_location=True)]]
     if not has_phone:
         rows.insert(0, [KeyboardButton("📱 Share my phone number", request_contact=True)])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
@@ -55,9 +57,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Hozir 1-yo'nalish to'lami?\n"
         "📍 Joylashuvingizni yuborsangiz, eng yaqin bekatni aytaman."
     )
-    if not phone:
-        text += "\n\n📱 Log in with your phone number: press the button below."
-    await update.message.reply_text(text, reply_markup=keyboard(bool(phone)))
+    await update.message.reply_text(text, reply_markup=MAP_BUTTON)
+    tip = "📱 Share your phone number to log in." if not phone else "👇"
+    await update.message.reply_text(tip, reply_markup=keyboard(bool(phone)))
 
 
 async def got_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -85,10 +87,8 @@ async def got_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # also update profile if it exists
     await db("PATCH", f"profiles?telegram_id=eq.{user.id}", json={"phone": phone})
 
-    await msg.reply_text(
-        f"✅ You're registered with {phone}.\nOpen the map — you'll be logged in automatically.",
-        reply_markup=keyboard(True),
-    )
+    await msg.reply_text(f"✅ You're registered with {phone}.", reply_markup=keyboard(True))
+    await msg.reply_text("Open the map, you'll be logged in automatically:", reply_markup=MAP_BUTTON)
 
 
 async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
