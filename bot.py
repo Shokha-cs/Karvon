@@ -136,13 +136,15 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, question:
     # ignore location older than 30 min
     loc = context.user_data.get("loc")
     where = loc[:2] if loc and msg.date.timestamp() - loc[2] < 30 * 60 else None
+    step = "supabase"
     try:
         data = await assistant.build_context(db, where)
+        step = "gemini"
         answer = await assistant.ask(question, data)
     except assistant.AssistantError as e:
         answer = f"⚠️ {e}"
     except Exception as e:  # keep bot running
-        print("assistant error:", repr(e))
+        print(f"assistant error ({step}):", repr(e))
         answer = "⚠️ Something went wrong. Please try again in a moment."
     await msg.reply_text(answer)
 

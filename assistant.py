@@ -172,9 +172,15 @@ async def ask(question: str, context_text: str) -> str:
         "contents": [{"role": "user", "parts": [{"text": question[:1000]}]}],
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048},
     }
-    async with httpx.AsyncClient(timeout=40) as c:
-        r = await c.post(GEMINI_URL.format(model=GEMINI_MODEL),
-                         headers={"x-goog-api-key": GEMINI_KEY}, json=body)
+    t0 = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=15)) as c:
+            r = await c.post(GEMINI_URL.format(model=GEMINI_MODEL),
+                             headers={"x-goog-api-key": GEMINI_KEY}, json=body)
+    except httpx.TimeoutException:
+        print(f"gemini timeout after {time.time() - t0:.0f}s")
+        raise AssistantError("The AI took too long to answer. Please try again.")
+    print(f"gemini {r.status_code} in {time.time() - t0:.1f}s")
     if r.status_code == 429:
         raise AssistantError("The AI is busy right now. Please try again in a minute.")
     if not r.is_success:
