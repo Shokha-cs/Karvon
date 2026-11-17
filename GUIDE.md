@@ -26,6 +26,9 @@ checks permissions. The website is static files on GitHub Pages. Only the bot ru
 | `live.js` | Reads real bus positions from the database and puts them on the map; saves stop requests |
 | `forecast.js` | Crowding forecast: how full each route usually is, hour by hour (Live + Hokimiyat tabs) |
 | `assistant.py` | AI travel assistant for the bot: collects real data, asks Google Gemini |
+| `chat.js` | "🤖 Ask AI" chat window on the website |
+| `alert.js` | "🔔 Alert me 2 min before" the bus reaches your stop |
+| `supabase/functions/ai-chat/index.ts` | Server side of the website AI (keeps the Gemini key secret) |
 | `config.js` | Supabase address + public key. Empty means demo mode (no login, only simulated buses) |
 | `routes.json` | The 3 routes (stops + road shape) |
 | `supabase/schema.sql` | All database tables, the security rules and the hardware endpoint. Run it once |
@@ -119,6 +122,18 @@ curl -X POST "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/report_position" \
    answer with the nearest stops.
 4. If Google changes the model name and the bot says "had a problem", look at the error in the terminal and set
    `GEMINI_MODEL=` in `.env` to a current Flash model from https://ai.google.dev/gemini-api/docs/models.
+
+### AI chat on the website
+The Gemini key must never be in the website code, so the website asks a server function (`ai-chat`) and the
+function asks Gemini.
+1. Supabase → **Edge Functions → Deploy a new function → Via Editor**. Name it `ai-chat`, paste
+   `supabase/functions/ai-chat/index.ts`, Deploy.
+2. Check the URL in the list ends with `/ai-chat`. If Supabase gave it another name, put that name in
+   `config.js` → `AI_FUNCTION`.
+3. Function **Settings → Verify JWT: OFF** (the function checks the logged-in user itself).
+4. **Edge Functions → Secrets:** add `GEMINI_API_KEY` (same key as in `.env`) and `GEMINI_MODEL` =
+   `gemini-3.5-flash-lite`.
+5. Push to GitHub, open the site, log in, press **🤖 Ask AI**.
 
 **Re-run `supabase/schema.sql`** once after updating: it adds the `crowd_forecast` function. It's safe to run again.
 
@@ -227,6 +242,14 @@ When a passenger taps a stop (or presses "Near me"), `countRequest` → `onStopR
    stops or times, answer in the passenger's language, short and plain.
 4. Limits so the free key isn't used up: one question every 4 seconds and 40 per day per person.
 5. The AI never touches the database itself. It only sees the text we give it.
+6. Website: same logic in `supabase/functions/ai-chat/index.ts`. The page sends the question, the routes and
+   your location (if you pressed Near me); the function adds live buses + forecast and asks Gemini. Only
+   logged-in users can use it. It remembers the last 6 messages, so follow-up questions work.
+
+### H. Arrival alert (`alert.js`)
+Pick a stop → press **🔔 Alert me 2 min before** for one direction. Every second the page checks the next bus
+in that direction (same ETA maths as the big number). When it is 2 min or less away: banner + sound +
+vibration (in Telegram: haptic feedback). Tap again to cancel.
 
 ---
 
@@ -238,7 +261,7 @@ When a passenger taps a stop (or presses "Near me"), `countRequest` → `onStopR
 - An email account and a Telegram account for the same person are two separate accounts.
 - Not tested against a real Supabase project or real hardware yet. Test steps are in section 3.
 - The forecast needs real GPS history. Until then it shows a labelled example pattern.
-- The AI assistant works in Telegram only, not on the website.
+- The arrival alert works while the map is open (it is not a push notification from a server).
 
 ## 7. Video outline (3–4 min)
 1. **Problem (20 s):** in Fergana you don't know where the bus is or whether it's full.

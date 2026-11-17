@@ -103,7 +103,7 @@ $("googleLogin").onclick = async () => {
 // telegram: server function checks initData, returns login token
 async function telegramLogin() {
   showLoading("Logging in with Telegram…");
-  const { data, error } = await sb.functions.invoke("smart-api", {
+  const { data, error } = await sb.functions.invoke(cfg.TG_LOGIN_FUNCTION || "smart-api", {
     body: { initData: tg.initData },
   });
   if (error || !data || !data.token_hash)
