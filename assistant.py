@@ -167,11 +167,17 @@ class AssistantError(Exception):
     pass
 
 
-async def ask(question: str, context_text: str) -> str:
+LANG_NAME = {"uz": "Uzbek (Latin script)", "ru": "Russian", "en": "English"}
+
+
+# errors carry a key, bot.py turns it into the user's language
+async def ask(question: str, context_text: str, lang: str | None = None) -> str:
     if not GEMINI_KEY:
-        raise AssistantError("The AI assistant is not set up yet (no GEMINI_API_KEY).")
+        raise AssistantError("no_key")
     body = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT + "\n\nDATA:\n" + context_text}]},
+        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT
+                                         + (f"\n- ALWAYS reply in {LANG_NAME[lang]}, whatever language the question is in." if lang in LANG_NAME else "")
+                                         + "\n\nDATA:\n" + context_text}]},
         "contents": [{"role": "user", "parts": [{"text": question[:1000]}]}],
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048},
     }
@@ -182,13 +188,13 @@ async def ask(question: str, context_text: str) -> str:
                              headers={"x-goog-api-key": GEMINI_KEY}, json=body)
     except httpx.TimeoutException:
         print(f"gemini timeout after {time.time() - t0:.0f}s")
-        raise AssistantError("The AI took too long to answer. Please try again.")
+        raise AssistantError("timeout")
     print(f"gemini {r.status_code} in {time.time() - t0:.1f}s")
     if r.status_code == 429:
-        raise AssistantError("The AI is busy right now. Please try again in a minute.")
+        raise AssistantError("busy")
     if not r.is_success:
         print("gemini error:", r.status_code, r.text[:500])
-        raise AssistantError("The AI assistant had a problem. Please try again later.")
+        raise AssistantError("problem")
     data = r.json()
     try:
         parts = data["candidates"][0]["content"]["parts"]
@@ -197,7 +203,7 @@ async def ask(question: str, context_text: str) -> str:
         text = ""
     if not text:
         print("gemini empty answer:", json.dumps(data)[:500])
-        raise AssistantError("Sorry, I couldn't answer that. Try asking in another way.")
+        raise AssistantError("empty")
     return text[:3500]  # telegram limit 4096
 
 
@@ -211,12 +217,12 @@ def allowed(user_id: int):
     # None = ok
     now, today = time.time(), datetime.now(TZ).date()
     if now - _last.get(user_id, 0) < MIN_GAP_S:
-        return "One question at a time, please 🙂"
+        return "slow"
     day, n = _count.get(user_id, (today, 0))
     if day != today:
         n = 0
     if n >= PER_DAY:
-        return "You've reached today's question limit. Try again tomorrow."
+        return "limit"
     _last[user_id] = now
     _count[user_id] = (today, n + 1)
     return None

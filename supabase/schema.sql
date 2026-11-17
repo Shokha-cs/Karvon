@@ -141,6 +141,8 @@ create table if not exists public.telegram_users (
   username   text,
   updated_at timestamptz not null default now()
 );
+alter table public.telegram_users add column if not exists lang text;
+alter table public.telegram_users add column if not exists full_name text;
 alter table public.telegram_users enable row level security;
 
 -- 7. crowding forecast: avg passengers per hour, last 28 days
