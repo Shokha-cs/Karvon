@@ -38,7 +38,8 @@
         --ok: #12a150;
         --warn: #d98200;
         --bad: #e5484d;
-        --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 28px rgba(16, 24, 40, 0.1);
+        --shadow:
+          0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 28px rgba(16, 24, 40, 0.1);
         --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
         --glass: rgba(255, 255, 255, 0.82);
         --casing: rgba(16, 24, 40, 0.5);
@@ -210,7 +211,8 @@
       .tabs button.on {
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
         color: #fff;
-        box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent);
+        box-shadow: 0 4px 12px
+          color-mix(in srgb, var(--accent) 35%, transparent);
       }
       .iconbtn {
         width: 42px;
@@ -693,7 +695,9 @@
       }
       .fcol.now i {
         opacity: 1;
-        box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink);
+        box-shadow:
+          0 0 0 2px var(--card),
+          0 0 0 4px var(--ink);
       }
       .fcol span {
         font-size: 10px;
@@ -824,7 +828,9 @@
       /* markers */
       .busicon {
         border-radius: 8px;
-        font: 800 11px "Inter", system-ui;
+        font:
+          800 11px "Inter",
+          system-ui;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -856,8 +862,16 @@
         inset: 0;
         z-index: 5000;
         background:
-          radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
-          radial-gradient(900px 500px at 110% 110%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 60%),
+          radial-gradient(
+            1200px 600px at 10% -10%,
+            color-mix(in srgb, var(--accent) 22%, transparent),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 500px at 110% 110%,
+            color-mix(in srgb, var(--accent-2) 20%, transparent),
+            transparent 60%
+          ),
           var(--bg);
         display: grid;
         place-items: center;
@@ -879,7 +893,11 @@
         padding: 34px 30px;
         color: #fff;
         background:
-          radial-gradient(500px 300px at 0% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
+          radial-gradient(
+            500px 300px at 0% 0%,
+            rgba(255, 255, 255, 0.18),
+            transparent 60%
+          ),
           linear-gradient(145deg, #3d5afe, #7c4dff 70%, #b14dff);
         display: flex;
         flex-direction: column;
@@ -1024,7 +1042,21 @@
       <div id="map">
         <div class="topbar">
           <div class="brand">
-            <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-4M16 21v-4"/><circle cx="8" cy="14" r=".6" fill="currentColor"/><circle cx="16" cy="14" r=".6" fill="currentColor"/></svg></span>
+            <span class="logo"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="4" y="3" width="16" height="14" rx="3" />
+                <path d="M4 11h16M8 21v-4M16 21v-4" />
+                <circle cx="8" cy="14" r=".6" fill="currentColor" />
+                <circle cx="16" cy="14" r=".6" fill="currentColor" /></svg
+            ></span>
             <span class="brandname">Karvon</span>
             <span
               class="demo"
@@ -1170,9 +1202,26 @@
     <div class="auth" id="auth" hidden>
       <div class="authwrap">
         <div class="hero">
-          <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-4M16 21v-4"/><circle cx="8" cy="14" r=".6" fill="currentColor"/><circle cx="16" cy="14" r=".6" fill="currentColor"/></svg></span>
+          <span class="logo"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="4" y="3" width="16" height="14" rx="3" />
+              <path d="M4 11h16M8 21v-4M16 21v-4" />
+              <circle cx="8" cy="14" r=".6" fill="currentColor" />
+              <circle cx="16" cy="14" r=".6" fill="currentColor" /></svg
+          ></span>
           <h1>Karvon</h1>
-          <p>Fergana's buses, live: where they are, how full they are, and when they arrive.</p>
+          <p>
+            Fergana's buses, live: where they are, how full they are, and when
+            they arrive.
+          </p>
           <ul>
             <li>🛰 Real GPS boxes on the buses</li>
             <li>👥 Live passenger count in every bus</li>
@@ -1189,10 +1238,40 @@
               <button class="btn primary" id="tgLogin" hidden>
                 ✈️ Continue with Telegram
               </button>
-              <button class="btn" id="googleLogin"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Continue with Google</button>
+              <button class="btn" id="googleLogin">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 48 48"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="#FFC107"
+                    d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"
+                  />
+                  <path
+                    fill="#FF3D00"
+                    d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"
+                  />
+                  <path
+                    fill="#4CAF50"
+                    d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"
+                  />
+                  <path
+                    fill="#1976D2"
+                    d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"
+                  />
+                </svg>
+                Continue with Google
+              </button>
               <div class="or">or with email</div>
               <input id="aName" type="text" placeholder="Full name" hidden />
-              <input id="aEmail" type="email" placeholder="Email" autocomplete="email" />
+              <input
+                id="aEmail"
+                type="email"
+                placeholder="Email"
+                autocomplete="email"
+              />
               <input
                 id="aPass"
                 type="password"
@@ -1699,7 +1778,10 @@
           .filter((b) => b.route === r.id)
           .map((b) => ({ b, ...arrival(b, r, s) }));
         if (!all.length)
-          return set(head + `<div class="empty">No buses on route ${esc(r.name)} right now.</div>`);
+          return set(
+            head +
+              `<div class="empty">No buses on route ${esc(r.name)} right now.</div>`,
+          );
         const last = r._stops.length - 1;
         // one block per direction
         const dirs = [
@@ -1711,25 +1793,25 @@
         );
         set(
           head +
-          `<div class="stop">🚏 ${esc(stopName(r, selStop))}</div>` +
-          dirs
-            .map(([d, to]) => {
-              const list = all
-                .filter((x) => x.dir === d)
-                .sort((a, c) => a.t - c.t);
-              if (!list.length) return "";
-              const n = list[0],
-                f = loadOf(n.b),
-                then = list[1] ? ` · then ${fmtMin(list[1].t)} min` : "";
-              return `<div style="display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid var(--line)">
+            `<div class="stop">🚏 ${esc(stopName(r, selStop))}</div>` +
+            dirs
+              .map(([d, to]) => {
+                const list = all
+                  .filter((x) => x.dir === d)
+                  .sort((a, c) => a.t - c.t);
+                if (!list.length) return "";
+                const n = list[0],
+                  f = loadOf(n.b),
+                  then = list[1] ? ` · then ${fmtMin(list[1].t)} min` : "";
+                return `<div style="display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid var(--line)">
       <div class="small muted">Towards <b style="color:var(--ink)">${esc(to)}</b></div>
       <div class="big"><b>${fmtMin(n.t)}</b><span>min · bus ${esc(n.b.bus_id)}${then}</span></div>
       <div class="load"><i style="width:${Math.round(f * 100)}%;background:${loadColor(f)}"></i></div>
       <div class="small"><span class="${loadClass(f)}"><b>${loadText(f)}</b></span> <span class="muted">· ${n.b.passengers}/${n.b.cap} passengers</span></div>
       ${window.alertBtn ? alertBtn(r, selStop, d) : ""}
     </div>`;
-            })
-            .join(""),
+              })
+              .join(""),
         );
       }
       function renderBuses() {
@@ -2261,13 +2343,21 @@
     <div class="chat" id="chat" hidden>
       <div class="chathead">
         <span class="logo">🤖</span>
-        <span class="grow"><b>Karvon AI</b><span class="small muted">Answers from live bus data</span></span>
+        <span class="grow"
+          ><b>Karvon AI</b
+          ><span class="small muted">Answers from live bus data</span></span
+        >
         <button class="x" id="chatClose" aria-label="Close">✕</button>
       </div>
       <div class="chatlog" id="chatLog"></div>
       <div class="chatsug" id="chatSug"></div>
       <form class="chatin" id="chatForm">
-        <input id="chatInput" placeholder="Ask about buses…" autocomplete="off" maxlength="500" />
+        <input
+          id="chatInput"
+          placeholder="Ask about buses…"
+          autocomplete="off"
+          maxlength="500"
+        />
         <button class="btn primary">Send</button>
       </form>
     </div>
