@@ -1,4 +1,4 @@
-// ESP32 + GPS box, sends position every 5s (needs wifi, SIM800L can't do https)
+// ESP32 + GPS box, sends position every 5s
 // lib: TinyGPSPlus. wiring: VCC->3V3, GND->GND, TX->GPIO16, RX->GPIO17
 
 #include <WiFi.h>
@@ -7,31 +7,37 @@
 #include <TinyGPSPlus.h>
 
 // ---- change these ----
-const char* WIFI_NAME  = "your-hotspot";
-const char* WIFI_PASS  = "your-password";
-const char* SUPA_URL   = "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/report_position";
-const char* SUPA_KEY   = "YOUR-ANON-OR-PUBLISHABLE-KEY";   // same as config.js
-const char* BUS_ID     = "1-1";                             // row in devices table
-const char* DEVICE_KEY = "change-me-box-1";                 // same row's device_key
+const char *WIFI_NAME = "";
+const char *WIFI_PASS = "";
+const char *SUPA_URL = "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/report_position";
+const char *SUPA_KEY = "sb_publishable_d1uigsXa4xDIQeDS2zcTkA_ZlrQepHA";
+const char *BUS_ID = "1-1";
+const char *DEVICE_KEY = "change-me-box-1";
 // -----------------------
 
 TinyGPSPlus gps;
 HardwareSerial GPSSerial(2);
-int passengers = 0;          // passenger counter
+int passengers = 0;
 unsigned long lastSend = 0;
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   GPSSerial.begin(9600, SERIAL_8N1, 16, 17);
   WiFi.begin(WIFI_NAME, WIFI_PASS);
   Serial.print("Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
   Serial.println(" connected");
 }
 
-void sendPosition(double lat, double lng) {
+void sendPosition(double lat, double lng)
+{
   WiFiClientSecure client;
-  client.setInsecure();      // no cert check
+  client.setInsecure(); // no cert check
   HTTPClient http;
   http.begin(client, SUPA_URL);
   http.addHeader("Content-Type", "application/json");
@@ -43,18 +49,24 @@ void sendPosition(double lat, double lng) {
                 ",\"lng\":" + String(lng, 6) +
                 ",\"passengers\":" + passengers + "}";
   int code = http.POST(body);
-  Serial.printf("POST %d %s\n", code, http.getString().c_str());   // 200 "ok" = good
+  Serial.printf("POST %d %s\n", code, http.getString().c_str()); // 200 "ok" = good
   http.end();
 }
 
-void loop() {
-  while (GPSSerial.available()) gps.encode(GPSSerial.read());   // feed GPS bytes
+void loop()
+{
+  while (GPSSerial.available())
+    gps.encode(GPSSerial.read()); // feed GPS bytes
 
-  if (millis() - lastSend > 5000) {
+  if (millis() - lastSend > 5000)
+  {
     lastSend = millis();
-    if (gps.location.isValid() && gps.location.age() < 10000) {
+    if (gps.location.isValid() && gps.location.age() < 10000)
+    {
       sendPosition(gps.location.lat(), gps.location.lng());
-    } else {
+    }
+    else
+    {
       Serial.printf("No GPS fix yet (satellites: %d). Go near a window/outside.\n",
                     gps.satellites.value());
     }
