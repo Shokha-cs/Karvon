@@ -1,5 +1,6 @@
 // ai-chat: AI assistant for the website (same idea as assistant.py in the bot)
-// secrets: GEMINI_API_KEY, optional GEMINI_MODEL. verify JWT = off (we check the user here)
+// secrets: GEMINI_API_KEY and/or ANTHROPIC_API_KEY (claude = backup), optional GEMINI_MODEL, CLAUDE_MODEL
+// verify JWT = off (we check the user here)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -10,6 +11,8 @@ const admin = createClient(
 );
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash-lite";
+const CLAUDE_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") || "claude-haiku-5-5";
 const CAP = 60; // = 100% full
 const OFFLINE_S = 120;
 
@@ -134,6 +137,66 @@ async function buildContext(routes: Route[], loc: [number, number] | null) {
   return lines.join("\n");
 }
 
+type Msg = { role: string; parts: { text: string }[] };
+
+async function post(name: string, url: string, headers: Record<string, string>, body: unknown) {
+  const t0 = Date.now();
+  let r: Response;
+  try {
+    r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000),
+    });
+  } catch (e) {
+    console.log(name, "network/timeout", e);
+    throw new Error("The AI took too long to answer. Try again.");
+  }
+  console.log(`${name} ${r.status} in ${(Date.now() - t0) / 1000}s`);
+  if (r.status === 429 || r.status === 529) throw new Error("The AI is busy right now. Try again in a minute.");
+  if (!r.ok) {
+    console.log(name, "error", await r.text());
+    throw new Error("The AI had a problem. Try again later.");
+  }
+  return await r.json();
+}
+
+async function askGemini(system: string, history: Msg[], question: string) {
+  const out = await post("gemini", `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, { "x-goog-api-key": GEMINI_KEY }, {
+    system_instruction: { parts: [{ text: system }] },
+    contents: [...history, { role: "user", parts: [{ text: question }] }],
+    generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
+  });
+  const text = (out?.candidates?.[0]?.content?.parts ?? [])
+    .filter((p: { thought?: boolean }) => !p.thought)
+    .map((p: { text?: string }) => p.text ?? "")
+    .join("")
+    .trim();
+  if (!text) throw new Error("Sorry, I couldn't answer that. Try asking another way.");
+  return text;
+}
+
+async function askClaude(system: string, history: Msg[], question: string) {
+  const out = await post("claude", "https://api.anthropic.com/v1/messages", { "x-api-key": CLAUDE_KEY, "anthropic-version": "2023-06-01" }, {
+    model: CLAUDE_MODEL,
+    max_tokens: 1024,
+    temperature: 0.3,
+    system,
+    messages: [
+      ...history.map((m) => ({ role: m.role === "model" ? "assistant" : "user", content: m.parts[0].text })),
+      { role: "user", content: question },
+    ],
+  });
+  const text = (out?.content ?? [])
+    .filter((b: { type: string }) => b.type === "text")
+    .map((b: { text: string }) => b.text)
+    .join("")
+    .trim();
+  if (!text) throw new Error("Sorry, I couldn't answer that. Try asking another way.");
+  return text;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -143,7 +206,7 @@ Deno.serve(async (req) => {
     if (!auth?.user) return json({ error: "Please log in to use the AI." }, 401);
     const stop = limited(auth.user.id);
     if (stop) return json({ error: stop }, 429);
-    if (!GEMINI_KEY) return json({ error: "AI is not set up yet (no GEMINI_API_KEY secret)." }, 500);
+    if (!GEMINI_KEY && !CLAUDE_KEY) return json({ error: "AI is not set up yet (no GEMINI_API_KEY or ANTHROPIC_API_KEY secret)." }, 500);
 
     const body = await req.json();
     const question = String(body.question ?? "").slice(0, 500).trim();
@@ -163,31 +226,26 @@ Deno.serve(async (req) => {
       }));
     while (history.length && history[0].role !== "user") history.shift();
 
-    const data = await buildContext(routes, loc);
-    const t0 = Date.now();
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: PROMPT + "\n\nDATA:\n" + data }] },
-        contents: [...history, { role: "user", parts: [{ text: question }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
-      }),
-      signal: AbortSignal.timeout(60000),
-    });
-    console.log(`gemini ${r.status} in ${(Date.now() - t0) / 1000}s`);
-    if (r.status === 429) return json({ error: "The AI is busy right now. Try again in a minute." }, 429);
-    if (!r.ok) {
-      console.log("gemini error", await r.text());
-      return json({ error: "The AI had a problem. Try again later." }, 502);
+    const system = PROMPT + "\n\nDATA:\n" + (await buildContext(routes, loc));
+    let answer = "";
+    let fail = "The AI had a problem. Try again later.";
+    if (GEMINI_KEY) {
+      try {
+        answer = await askGemini(system, history, question);
+      } catch (e) {
+        fail = String((e as Error).message);
+        console.log("gemini failed:", fail);
+      }
     }
-    const out = await r.json();
-    const answer = (out?.candidates?.[0]?.content?.parts ?? [])
-      .filter((p: { thought?: boolean }) => !p.thought)
-      .map((p: { text?: string }) => p.text ?? "")
-      .join("")
-      .trim();
-    if (!answer) return json({ error: "Sorry, I couldn't answer that. Try asking another way." }, 502);
+    if (!answer && CLAUDE_KEY) {
+      try {
+        answer = await askClaude(system, history, question);
+      } catch (e) {
+        fail = String((e as Error).message);
+        console.log("claude failed:", fail);
+      }
+    }
+    if (!answer) return json({ error: fail }, 502);
     return json({ answer: answer.slice(0, 3500) });
   } catch (e) {
     console.log("ai-chat error", e);

@@ -1,5 +1,5 @@
-# AI assistant: routes + live buses + forecast -> gemini
-# needs GEMINI_API_KEY in .env
+# AI assistant: routes + live buses + forecast -> gemini (claude as backup)
+# needs GEMINI_API_KEY and/or ANTHROPIC_API_KEY in .env
 import json
 import math
 import os
@@ -13,6 +13,9 @@ GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 # can change model in .env
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash-lite"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# backup when gemini is busy / fails
+CLAUDE_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL") or "claude-haiku-5-5"
 
 TZ = timezone(timedelta(hours=5))  # fergana UTC+5
 CAP = 60  # = 100% full
@@ -174,29 +177,48 @@ LANG_NAME = {"uz": "Uzbek (Latin script)", "ru": "Russian", "en": "English"}
 
 # errors carry a key, bot.py turns it into the user's language
 async def ask(question: str, context_text: str, lang: str | None = None) -> str:
-    if not GEMINI_KEY:
+    if not GEMINI_KEY and not CLAUDE_KEY:
         raise AssistantError("no_key")
-    body = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT
-                                         + (f"\n- ALWAYS reply in {LANG_NAME[lang]}, whatever language the question is in." if lang in LANG_NAME else "")
-                                         + "\n\nDATA:\n" + context_text}]},
-        "contents": [{"role": "user", "parts": [{"text": question[:1000]}]}],
-        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048},
-    }
+    system = (SYSTEM_PROMPT
+              + (f"\n- ALWAYS reply in {LANG_NAME[lang]}, whatever language the question is in." if lang in LANG_NAME else "")
+              + "\n\nDATA:\n" + context_text)
+    question = question[:1000]
+    if GEMINI_KEY:
+        try:
+            return await ask_gemini(question, system)
+        except AssistantError:
+            if not CLAUDE_KEY:
+                raise
+            print("gemini failed, trying claude")
+    return await ask_claude(question, system)
+
+
+async def post(name: str, url: str, headers: dict, body: dict) -> httpx.Response:
     t0 = time.time()
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=15)) as c:
-            r = await c.post(GEMINI_URL.format(model=GEMINI_MODEL),
-                             headers={"x-goog-api-key": GEMINI_KEY}, json=body)
+            r = await c.post(url, headers=headers, json=body)
     except httpx.TimeoutException:
-        print(f"gemini timeout after {time.time() - t0:.0f}s")
+        print(f"{name} timeout after {time.time() - t0:.0f}s")
         raise AssistantError("timeout")
-    print(f"gemini {r.status_code} in {time.time() - t0:.1f}s")
-    if r.status_code == 429:
+    except httpx.HTTPError as e:
+        print(f"{name} network error:", repr(e))
+        raise AssistantError("problem")
+    print(f"{name} {r.status_code} in {time.time() - t0:.1f}s")
+    if r.status_code in (429, 529):
         raise AssistantError("busy")
     if not r.is_success:
-        print("gemini error:", r.status_code, r.text[:500])
+        print(f"{name} error:", r.status_code, r.text[:500])
         raise AssistantError("problem")
+    return r
+
+
+async def ask_gemini(question: str, system: str) -> str:
+    r = await post("gemini", GEMINI_URL.format(model=GEMINI_MODEL), {"x-goog-api-key": GEMINI_KEY}, {
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": question}]}],
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048},
+    })
     data = r.json()
     try:
         parts = data["candidates"][0]["content"]["parts"]
@@ -207,6 +229,23 @@ async def ask(question: str, context_text: str, lang: str | None = None) -> str:
         print("gemini empty answer:", json.dumps(data)[:500])
         raise AssistantError("empty")
     return text[:3500]  # telegram limit 4096
+
+
+async def ask_claude(question: str, system: str) -> str:
+    r = await post("claude", "https://api.anthropic.com/v1/messages",
+                   {"x-api-key": CLAUDE_KEY, "anthropic-version": "2023-06-01"}, {
+                       "model": CLAUDE_MODEL,
+                       "max_tokens": 1024,
+                       "temperature": 0.3,
+                       "system": system,
+                       "messages": [{"role": "user", "content": question}],
+                   })
+    data = r.json()
+    text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
+    if not text:
+        print("claude empty answer:", json.dumps(data)[:500])
+        raise AssistantError("empty")
+    return text[:3500]
 
 
 # rate limit per user (free key)

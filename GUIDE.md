@@ -133,7 +133,9 @@ function asks Gemini.
 3. Function **Settings → Verify JWT: OFF** (the function checks the logged-in user itself).
 4. **Edge Functions → Secrets:** add `GEMINI_API_KEY` (same key as in `.env`) and `GEMINI_MODEL` =
    `gemini-3.5-flash-lite`.
-5. Push to GitHub, open the site, log in, press **🤖 Ask AI**.
+5. **Backup AI (optional):** add `ANTHROPIC_API_KEY` (from platform.claude.com) to `.env` AND to Secrets. If Gemini
+   is busy, times out or fails, the same question goes to Claude Haiku 5.5. Either key alone also works.
+6. Push to GitHub, open the site, log in, press **🤖 Ask AI**.
 
 **Re-run `supabase/schema.sql`** once after updating: it adds the `crowd_forecast` function. It's safe to run again.
 
