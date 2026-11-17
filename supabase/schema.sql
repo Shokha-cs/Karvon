@@ -161,7 +161,33 @@ create table if not exists public.telegram_users (
 alter table public.telegram_users enable row level security;
 
 -- ============================================================
--- 7. TEST DATA: two boxes. CHANGE THE KEYS before the demo.
+-- 7. CROWDING FORECAST: how full is each route, hour by hour?
+-- Average passengers per hour (Fergana time) from bus_history, last 28 days.
+-- Passengers see the forecast too, but only these averages, never the raw history.
+-- Call:  select * from crowd_forecast();        -- all routes
+--        select * from crowd_forecast('1');     -- one route
+-- ============================================================
+create index if not exists bus_history_time_idx on public.bus_history (time);
+
+drop function if exists public.crowd_forecast(text, int);
+create function public.crowd_forecast(p_route text default null, p_days int default 28)
+returns table (route text, hour int, avg_passengers numeric, samples bigint)
+language sql stable security definer set search_path = public as $$
+  select h.route,
+         extract(hour from h.time at time zone 'Asia/Tashkent')::int as hour,
+         round(avg(h.passengers)::numeric, 1) as avg_passengers,
+         count(*) as samples
+    from bus_history h
+   where h.time > now() - make_interval(days => least(greatest(p_days, 1), 90))
+     and (p_route is null or h.route = p_route)
+   group by 1, 2
+   order by 1, 2
+$$;
+revoke all on function public.crowd_forecast(text, int) from public;
+grant execute on function public.crowd_forecast(text, int) to authenticated, service_role;
+
+-- ============================================================
+-- 8. TEST DATA: two boxes. CHANGE THE KEYS before the demo.
 -- ============================================================
 insert into public.devices (bus_id, route, device_key) values
   ('1-1', '1', 'change-me-box-1'),

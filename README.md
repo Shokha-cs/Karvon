@@ -1,4 +1,4 @@
-# Fergana Bus
+# Karvon · Fergana Bus
 
 Live bus map for Fergana: where each bus is, how many passengers, and when it arrives.
 Works as a website and as a Telegram Mini App. UzHack — Smart Transport & Mobility track.
@@ -6,6 +6,8 @@ Works as a website and as a Telegram Mini App. UzHack — Smart Transport & Mobi
 - **Passengers:** live buses, minutes until arrival, how full
 - **Hokimiyat:** buses running, passengers now, demand per route
 - **Developer:** everything + route editor
+- **Crowding forecast:** how full each route usually is, hour by hour (from the GPS history)
+- **AI assistant (Telegram):** ask "which bus goes to …?" in Uzbek, Russian or English; answers from live data
 
 Login: email/password or Google on the website; Telegram account + shared phone number in Telegram.
 Backend: Supabase (database, auth, security rules). GPS boxes POST to one database function.

@@ -24,11 +24,13 @@ checks permissions. The website is static files on GitHub Pages. Only the bot ru
 | `index.html` | The map: Live / Hokimiyat / Edit tabs, the bus simulation, ETA maths, the route editor |
 | `auth.js` | Login screen, the 3 ways to log in, and which tabs each role sees |
 | `live.js` | Reads real bus positions from the database and puts them on the map; saves stop requests |
+| `forecast.js` | Crowding forecast: how full each route usually is, hour by hour (Live + Hokimiyat tabs) |
+| `assistant.py` | AI travel assistant for the bot: collects real data, asks Google Gemini |
 | `config.js` | Supabase address + public key. Empty means demo mode (no login, only simulated buses) |
 | `routes.json` | The 3 routes (stops + road shape) |
 | `supabase/schema.sql` | All database tables, the security rules and the hardware endpoint. Run it once |
 | `supabase/functions/telegram-login/index.ts` | Checks that Telegram login data is real, then logs the person in |
-| `bot.py` | Telegram bot: share phone number, open map, `/me` |
+| `bot.py` | Telegram bot: share phone number, open map, `/me`, AI questions, location |
 | `tools/fake_box.py` | Pretends to be a GPS box. Use it to test without hardware |
 | `hardware/esp32_box/esp32_box.ino` | Example code for the real box (ESP32 + GPS over Wi-Fi) |
 
@@ -109,14 +111,25 @@ curl -X POST "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/report_position" \
 5. In Telegram: `/start` → **📱 Share my phone number** → **🗺 Open bus map**. You're logged in automatically
    and the bot sends "🔐 You logged in…".
 
+### AI assistant (bot)
+1. Get a free key at **https://aistudio.google.com/apikey** (log in with Google → Create API key).
+2. Put it in `.env` as `GEMINI_API_KEY=...`. Never on GitHub.
+3. Restart `python bot.py`. Now any normal message to the bot is a question, e.g.
+   "Qaysi avtobus Mindanobodga boradi?" or "Is route 1 full now?". Pressing **📍 Send my location** makes it
+   answer with the nearest stops.
+4. If Google changes the model name and the bot says "had a problem", look at the error in the terminal and set
+   `GEMINI_MODEL=` in `.env` to a current Flash model from https://ai.google.dev/gemini-api/docs/models.
+
+**Re-run `supabase/schema.sql`** once after updating: it adds the `crowd_forecast` function. It's safe to run again.
+
 ### Roles
 Everyone starts as `passenger`. To promote someone, open **Table Editor → profiles**, find the person,
 and set `role` to `hokimiyat` or `developer`. Users cannot change their own role because there is no rule that allows it.
 
 | Role | Sees |
 |---|---|
-| passenger | Live tab: buses, location, minutes until arrival, how full |
-| hokimiyat | Live + Hokimiyat (buses running, passengers now, today's requests per route) |
+| passenger | Live tab: buses, location, minutes until arrival, how full, crowding forecast |
+| hokimiyat | Live + Hokimiyat (buses running, passengers now, today's requests per route, when to add buses) |
 | developer | Everything + Edit (route editor) |
 
 ---
@@ -190,6 +203,31 @@ When a passenger taps a stop (or presses "Near me"), `countRequest` → `onStopR
 `stop_requests`. The Hokimiyat tab counts today's rows per route every 15 seconds. A route is flagged
 **"⚠ Add buses"** when its buses are more than 70% full on average, or when it has more than half of all requests.
 
+### F. Crowding forecast (`forecast.js` + `crowd_forecast()` in `schema.sql`)
+1. Every GPS report is kept in `bus_history` (time, route, passengers).
+2. `crowd_forecast()` runs **in the database**: for each route and each hour of the day (Fergana time) it takes
+   the **average passenger count over the last 28 days**. Passengers can call it, but they only get these
+   averages, never the raw history.
+3. The page turns the average into "% full" (`passengers / 60`) and draws one bar per hour, 06:00–22:00.
+   The bar for the current hour is outlined. It also shows the busiest hour and a less crowded time in the
+   next 3 hours.
+4. Hokimiyat tab: hours where a route is usually **75%+ full** are grouped into ranges, e.g.
+   "⚠ Add buses 08:00–10:00".
+5. **Not enough data** (fewer than 30 readings for a route): the page shows an **example** pattern with a clear
+   "Example, not real data yet" label. Run `fake_box.py` for a while to fill `bus_history` for testing.
+- Honest wording for judges: this is a **statistical forecast** (historical averages), not machine learning.
+  With more weeks of data it can be upgraded to a model that also uses weekday, weather and holidays.
+
+### G. AI assistant (`assistant.py`)
+1. The passenger writes a question to the bot (or shares their location).
+2. `build_context()` collects **real data** as text: all routes with their stops in order, the live buses
+   (nearest stop, passengers, how long ago they reported), the usual crowding for the next hours, and the
+   nearest stops to the passenger's location if they shared it.
+3. That text and the question go to **Google Gemini**, with rules: use only this data, don't invent
+   stops or times, answer in the passenger's language, short and plain.
+4. Limits so the free key isn't used up: one question every 4 seconds and 40 per day per person.
+5. The AI never touches the database itself. It only sees the text we give it.
+
 ---
 
 ## 6. What is still NOT done (be honest if judges ask)
@@ -199,6 +237,8 @@ When a passenger taps a stop (or presses "Near me"), `countRequest` → `onStopR
 - The bot runs on your laptop (polling mode). To keep it on 24/7, move it to PythonAnywhere in webhook mode.
 - An email account and a Telegram account for the same person are two separate accounts.
 - Not tested against a real Supabase project or real hardware yet. Test steps are in section 3.
+- The forecast needs real GPS history. Until then it shows a labelled example pattern.
+- The AI assistant works in Telegram only, not on the website.
 
 ## 7. Video outline (3–4 min)
 1. **Problem (20 s):** in Fergana you don't know where the bus is or whether it's full.
@@ -207,5 +247,7 @@ When a passenger taps a stop (or presses "Near me"), `countRequest` → `onStopR
    Supabase → the bus moves on the map with a green outline.
 4. **Passenger (40 s):** log in with Telegram → tap a stop → "arrives in 4 min, some seats".
 5. **Hokimiyat (30 s):** log in as hokimiyat → requests and how full each route is → "⚠ Add buses".
-6. **Developer (20 s):** Edit tab, route editor.
-7. **Security (20 s):** device keys, RLS, Telegram signature check.
+6. **AI + forecast (40 s):** ask the bot "Which bus goes to …?" → answer from live data; show the
+   "Crowding forecast" card and the Hokimiyat "Add buses 08:00–10:00" advice.
+7. **Developer (20 s):** Edit tab, route editor.
+8. **Security (20 s):** device keys, RLS, Telegram signature check.

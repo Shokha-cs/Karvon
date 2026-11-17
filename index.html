@@ -6,7 +6,14 @@
       name="viewport"
       content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1"
     />
-    <title>Fergana Bus</title>
+    <title>Karvon · Fergana live buses</title>
+    <meta name="theme-color" content="#3d5afe" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
@@ -16,33 +23,46 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
     <script src="config.js"></script>
     <style>
-      /* light by default, dark via button */
+      /* ===== KARVON DESIGN =====
+         Light by default, dark via the moon button.
+         All colours live here as variables: change one line, the whole app follows. */
       :root {
-        --bg: #f2f4f7;
+        --bg: #eef1f6;
         --card: #ffffff;
-        --ink: #141b26;
-        --muted: #647085;
-        --line: #e1e5ec;
-        --accent: #1565d8;
+        --card-2: #f6f8fb; /* inner boxes inside a card */
+        --ink: #101828;
+        --muted: #667085;
+        --line: #e4e8ef;
+        --accent: #3d5afe;
+        --accent-2: #7c4dff;
         --accent-ink: #ffffff;
-        --ok: #1d8a4e;
-        --warn: #c27400;
-        --bad: #cc3a2f;
-        --shadow: 0 6px 24px rgba(15, 25, 40, 0.14);
-        --casing: rgba(20, 27, 38, 0.55);
+        --accent-soft: #eef1ff;
+        --ok: #12a150;
+        --warn: #d98200;
+        --bad: #e5484d;
+        --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 28px rgba(16, 24, 40, 0.1);
+        --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
+        --glass: rgba(255, 255, 255, 0.82);
+        --casing: rgba(16, 24, 40, 0.5);
+        --radius: 16px;
       }
       :root[data-theme="dark"] {
-        --bg: #0e131b;
-        --card: #171e29;
-        --ink: #e8edf4;
-        --muted: #98a4b6;
-        --line: #283241;
-        --accent: #5c9dff;
-        --accent-ink: #0e131b;
-        --ok: #4fcb87;
-        --warn: #f0b04a;
-        --bad: #ff7d72;
-        --shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+        --bg: #0b0f17;
+        --card: #131925;
+        --card-2: #1a2231;
+        --ink: #eef2f8;
+        --muted: #94a0b4;
+        --line: #252f40;
+        --accent: #7b8fff;
+        --accent-2: #a78bfa;
+        --accent-ink: #0b0f17;
+        --accent-soft: #1d2440;
+        --ok: #3ddc84;
+        --warn: #ffb547;
+        --bad: #ff6b6b;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.45);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --glass: rgba(19, 25, 37, 0.85);
         --casing: rgba(0, 0, 0, 0.85);
       }
       * {
@@ -57,11 +77,13 @@
         background: var(--bg);
         color: var(--ink);
         font:
-          15px/1.4 system-ui,
+          15px/1.45 "Inter",
+          system-ui,
           -apple-system,
           "Segoe UI",
           Roboto,
           sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
       button {
         font: inherit;
@@ -71,12 +93,16 @@
       [hidden] {
         display: none !important;
       }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
 
       #app {
         position: fixed;
         inset: 0;
         display: grid;
-        grid-template-columns: 1fr 360px;
+        grid-template-columns: 1fr 380px;
       }
       #map {
         position: relative;
@@ -90,14 +116,29 @@
       .leaflet-popup-tip {
         background: var(--card);
         color: var(--ink);
+        box-shadow: var(--shadow);
+      }
+      .leaflet-popup-content-wrapper {
+        border-radius: 14px;
+      }
+      .leaflet-control-zoom {
+        border: 0 !important;
+        box-shadow: var(--shadow) !important;
+        border-radius: 12px !important;
+        overflow: hidden;
+      }
+      .leaflet-control-zoom a {
+        background: var(--card) !important;
+        color: var(--ink) !important;
+        border-color: var(--line) !important;
       }
 
-      /* top bar */
+      /* ---------- top bar (floats over the map) ---------- */
       .topbar {
         position: absolute;
-        top: calc(10px + env(safe-area-inset-top));
-        left: 10px;
-        right: 10px;
+        top: calc(12px + env(safe-area-inset-top));
+        left: 12px;
+        right: 12px;
         z-index: 500;
         display: flex;
         gap: 8px;
@@ -109,25 +150,43 @@
       .fab,
       .iconbtn {
         pointer-events: auto;
-        background: var(--card);
+        background: var(--glass);
+        backdrop-filter: blur(14px) saturate(1.4);
+        -webkit-backdrop-filter: blur(14px) saturate(1.4);
         box-shadow: var(--shadow);
         border-radius: 14px;
+        border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
       }
       .brand {
-        padding: 8px 12px;
-        font-weight: 700;
+        padding: 6px 12px 6px 6px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
         display: flex;
-        gap: 8px;
+        gap: 9px;
         align-items: center;
         white-space: nowrap;
       }
+      .logo {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+        flex: none;
+      }
+      .logo svg {
+        width: 18px;
+        height: 18px;
+      }
       .demo {
         font-size: 11px;
-        font-weight: 600;
+        font-weight: 700;
         color: var(--warn);
-        border: 1px solid currentColor;
+        background: color-mix(in srgb, currentColor 12%, transparent);
         border-radius: 99px;
-        padding: 1px 7px;
+        padding: 2px 8px;
       }
       .tabs {
         display: flex;
@@ -139,42 +198,48 @@
         border: 0;
         background: transparent;
         border-radius: 10px;
-        padding: 7px 11px;
+        padding: 7px 12px;
         font-size: 14px;
         font-weight: 600;
         color: var(--muted);
+        transition:
+          background 0.15s,
+          color 0.15s;
+      }
+      .tabs button:hover {
+        color: var(--ink);
       }
       .tabs button.on {
-        background: var(--accent);
-        color: var(--accent-ink);
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent);
       }
       .iconbtn {
-        border: 0;
         width: 42px;
         height: 42px;
-        font-size: 18px;
+        font-size: 17px;
         display: grid;
         place-items: center;
         flex: none;
       }
       .fab {
         position: absolute;
-        right: 10px;
+        right: 12px;
         z-index: 500;
-        border: 0;
-        padding: 11px 14px;
-        font-weight: 600;
+        padding: 11px 16px;
+        font-weight: 700;
         display: flex;
         gap: 6px;
         align-items: center;
+        color: var(--accent);
       }
       #nearBtn {
         bottom: 24px;
       }
 
-      /* side panel / bottom sheet on phone */
+      /* ---------- side panel (bottom sheet on phones) ---------- */
       #panel {
-        background: var(--card);
+        background: var(--bg);
         border-left: 1px solid var(--line);
         display: flex;
         flex-direction: column;
@@ -189,7 +254,7 @@
         padding: 14px;
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 12px;
         flex: 1;
         min-height: 0;
       }
@@ -207,8 +272,8 @@
           bottom: 0;
           height: 46%;
           border-left: 0;
-          border-radius: 18px 18px 0 0;
-          box-shadow: var(--shadow);
+          border-radius: 22px 22px 0 0;
+          box-shadow: 0 -8px 30px rgba(16, 24, 40, 0.18);
           transition: height 0.25s ease;
           padding-bottom: env(safe-area-inset-bottom);
         }
@@ -222,12 +287,12 @@
           display: block;
           border: 0;
           background: transparent;
-          padding: 8px 0 2px;
+          padding: 9px 0 2px;
           width: 100%;
         }
         .handle i {
           display: block;
-          width: 40px;
+          width: 42px;
           height: 5px;
           border-radius: 3px;
           background: var(--line);
@@ -245,6 +310,9 @@
         .brand .brandname {
           display: none;
         }
+        .brand {
+          padding-right: 8px;
+        }
         .tabs button {
           padding: 7px 9px;
         }
@@ -258,10 +326,11 @@
         }
       }
 
+      /* ---------- shared pieces ---------- */
       h2 {
         margin: 0;
         font-size: 12px;
-        letter-spacing: 0.07em;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--muted);
         font-weight: 700;
@@ -272,26 +341,54 @@
       .small {
         font-size: 13px;
       }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .cardhead {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .tag {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--accent);
+        background: var(--accent-soft);
+        border-radius: 99px;
+        padding: 2px 8px;
+        white-space: nowrap;
+      }
       .chips {
         display: flex;
         gap: 8px;
         overflow-x: auto;
-        padding-bottom: 2px;
+        padding: 2px 0;
         scrollbar-width: none;
       }
       .chip {
         flex: none;
-        border: 2px solid var(--line);
-        background: var(--bg);
+        border: 1px solid var(--line);
+        background: var(--card);
         border-radius: 12px;
-        padding: 6px 12px;
+        padding: 7px 13px;
         font-weight: 700;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 7px;
+        box-shadow: var(--shadow-sm);
+        transition: border-color 0.15s;
       }
       .chip.on {
         border-color: var(--c);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 30%, transparent);
       }
       .dot {
         width: 10px;
@@ -305,16 +402,19 @@
 
       /* next bus card */
       .next {
-        border-radius: 16px;
+        border-radius: var(--radius);
         padding: 14px;
-        background: var(--bg);
+        background: var(--card);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-sm);
         display: flex;
         flex-direction: column;
         gap: 10px;
       }
       .next .stop {
-        font-weight: 700;
+        font-weight: 800;
         font-size: 17px;
+        letter-spacing: -0.01em;
       }
       .next .big {
         display: flex;
@@ -322,9 +422,15 @@
         gap: 8px;
       }
       .next .big b {
-        font-size: 34px;
+        font-size: 38px;
         line-height: 1;
+        font-weight: 800;
+        letter-spacing: -0.03em;
         font-variant-numeric: tabular-nums;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
       }
       .load {
         height: 8px;
@@ -351,12 +457,16 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 10px;
+        padding: 11px 12px;
         border-radius: 12px;
-        background: var(--bg);
-        border: 0;
+        background: var(--card);
+        border: 1px solid var(--line);
         width: 100%;
         text-align: left;
+        transition: border-color 0.15s;
+      }
+      button.item:hover {
+        border-color: var(--accent);
       }
       .item .grow {
         flex: 1;
@@ -370,7 +480,8 @@
         white-space: nowrap;
         font-variant-numeric: tabular-nums;
       }
-      .free {
+      .free,
+      .ok {
         color: var(--ok);
       }
       .mid {
@@ -380,13 +491,67 @@
         color: var(--bad);
       }
       .pill.free {
-        background: color-mix(in srgb, var(--ok) 15%, transparent);
+        background: color-mix(in srgb, var(--ok) 14%, transparent);
       }
       .pill.mid {
-        background: color-mix(in srgb, var(--warn) 15%, transparent);
+        background: color-mix(in srgb, var(--warn) 14%, transparent);
       }
       .pill.full {
-        background: color-mix(in srgb, var(--bad) 15%, transparent);
+        background: color-mix(in srgb, var(--bad) 14%, transparent);
+      }
+
+      /* crowding forecast bars */
+      .fcbars {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 92px;
+        padding-top: 4px;
+      }
+      .fcbars.compact {
+        height: 44px;
+      }
+      .fcol {
+        flex: 1;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 3px;
+        min-width: 0;
+      }
+      .fcol i {
+        display: block;
+        width: 100%;
+        border-radius: 4px 4px 2px 2px;
+        opacity: 0.55;
+        transition: height 0.3s;
+      }
+      .fcol.now i {
+        opacity: 1;
+        box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink);
+      }
+      .fcol span {
+        font-size: 10px;
+        color: var(--muted);
+        height: 12px;
+        line-height: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .fcol.now span {
+        color: var(--ink);
+        font-weight: 700;
+      }
+      .fcnote {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .fcnote.warn {
+        color: var(--warn);
+        background: color-mix(in srgb, var(--warn) 10%, transparent);
+        border-radius: 10px;
+        padding: 8px 10px;
       }
 
       /* hokimiyat */
@@ -396,13 +561,17 @@
         gap: 8px;
       }
       .tile {
-        background: var(--bg);
-        border-radius: 12px;
-        padding: 10px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+        box-shadow: var(--shadow-sm);
       }
       .tile b {
         display: block;
-        font-size: 22px;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
         font-variant-numeric: tabular-nums;
       }
       .tile span {
@@ -410,12 +579,13 @@
         color: var(--muted);
       }
       .rstat {
-        background: var(--bg);
-        border-radius: 12px;
-        padding: 10px 12px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 7px;
       }
       .rstat .top {
         display: flex;
@@ -436,7 +606,7 @@
         padding: 9px 10px;
         border: 1px solid var(--line);
         border-radius: 10px;
-        background: var(--bg);
+        background: var(--card);
         color: var(--ink);
         font: inherit;
       }
@@ -452,23 +622,32 @@
       }
       .btn {
         border: 1px solid var(--line);
-        background: var(--bg);
+        background: var(--card);
         border-radius: 10px;
-        padding: 8px 11px;
+        padding: 8px 12px;
+        font-weight: 600;
+        transition:
+          border-color 0.15s,
+          filter 0.15s;
+      }
+      .btn:hover {
+        border-color: var(--accent);
       }
       .btn.primary {
-        background: var(--accent);
-        border-color: var(--accent);
-        color: var(--accent-ink);
-        font-weight: 600;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        border-color: transparent;
+        color: #fff;
+      }
+      .btn.primary:hover {
+        filter: brightness(1.08);
       }
       .btn.danger {
         color: var(--bad);
       }
       .hint {
-        background: var(--bg);
-        border-radius: 10px;
-        padding: 10px;
+        background: var(--accent-soft);
+        border-radius: 12px;
+        padding: 10px 12px;
         font-size: 13px;
         color: var(--muted);
       }
@@ -482,12 +661,12 @@
       /* markers */
       .busicon {
         border-radius: 8px;
-        font: 700 11px system-ui;
+        font: 800 11px "Inter", system-ui;
         display: flex;
         align-items: center;
         justify-content: center;
         border: 2px solid #fff;
-        box-shadow: 0 1px 5px #0007;
+        box-shadow: 0 2px 8px #0006;
         position: relative;
       }
       .busicon i {
@@ -503,62 +682,141 @@
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: #1a73e8;
+        background: var(--accent);
         border: 3px solid #fff;
-        box-shadow: 0 0 0 6px rgba(26, 115, 232, 0.25);
+        box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 25%, transparent);
       }
-      /* login screen */
+
+      /* ---------- login screen ---------- */
       .auth {
         position: fixed;
         inset: 0;
         z-index: 5000;
-        background: var(--bg);
+        background:
+          radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
+          radial-gradient(900px 500px at 110% 110%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 60%),
+          var(--bg);
         display: grid;
         place-items: center;
-        padding: 16px;
+        padding: 20px;
         overflow: auto;
       }
-      .auth[hidden] {
-        display: none;
-      }
-      .authcard {
+      .authwrap {
         width: 100%;
-        max-width: 360px;
+        max-width: 860px;
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
         background: var(--card);
-        border-radius: 18px;
+        border: 1px solid var(--line);
+        border-radius: 24px;
         box-shadow: var(--shadow);
-        padding: 22px 18px;
+        overflow: hidden;
+      }
+      .hero {
+        padding: 34px 30px;
+        color: #fff;
+        background:
+          radial-gradient(500px 300px at 0% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
+          linear-gradient(145deg, #3d5afe, #7c4dff 70%, #b14dff);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .hero .logo {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.18);
+      }
+      .hero .logo svg {
+        width: 26px;
+        height: 26px;
+      }
+      .hero h1 {
+        margin: 6px 0 0;
+        font-size: 34px;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+      }
+      .hero p {
+        margin: 0;
+        opacity: 0.9;
+      }
+      .hero ul {
+        list-style: none;
+        margin: auto 0 0;
+        padding: 0;
         display: flex;
         flex-direction: column;
         gap: 10px;
+        font-size: 14px;
       }
-      .authcard h1 {
+      .hero li {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 9px 12px;
+      }
+      .authcard {
+        padding: 30px 26px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        justify-content: center;
+      }
+      .authcard h2.title {
         margin: 0;
         font-size: 22px;
+        text-transform: none;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+        font-weight: 800;
       }
       .authcard input {
         width: 100%;
-        padding: 11px 12px;
+        padding: 12px 13px;
         border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--bg);
+        border-radius: 12px;
+        background: var(--card-2);
         color: var(--ink);
         font: inherit;
+        transition: border-color 0.15s;
+      }
+      .authcard input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
       }
       .authcard .btn {
         width: 100%;
-        padding: 11px;
+        padding: 12px;
         font: inherit;
-        font-weight: 600;
+        font-weight: 700;
         color: var(--ink);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
       }
       .authcard .btn.primary {
-        color: var(--accent-ink);
+        color: #fff;
       }
       .authcard .or {
-        text-align: center;
+        display: flex;
+        align-items: center;
+        gap: 10px;
         font-size: 12px;
         color: var(--muted);
+      }
+      .authcard .or::before,
+      .authcard .or::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--line);
       }
       .linkbtn {
         border: 0;
@@ -566,12 +824,35 @@
         color: var(--accent);
         font: inherit;
         font-size: 14px;
+        font-weight: 600;
       }
       #authMsg:empty {
         display: none;
       }
       #authMsg.err {
         color: var(--bad);
+      }
+      @media (max-width: 760px) {
+        .auth {
+          padding: 12px;
+          place-items: start center;
+        }
+        .authwrap {
+          grid-template-columns: 1fr;
+        }
+        .hero {
+          padding: 22px 20px;
+          gap: 10px;
+        }
+        .hero h1 {
+          font-size: 28px;
+        }
+        .hero ul {
+          display: none;
+        }
+        .authcard {
+          padding: 22px 18px;
+        }
       }
     </style>
   </head>
@@ -580,7 +861,8 @@
       <div id="map">
         <div class="topbar">
           <div class="brand">
-            🚌 <span class="brandname">Fergana Bus</span>
+            <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-4M16 21v-4"/><circle cx="8" cy="14" r=".6" fill="currentColor"/><circle cx="16" cy="14" r=".6" fill="currentColor"/></svg></span>
+            <span class="brandname">Karvon</span>
             <span
               class="demo"
               id="liveBadge"
@@ -612,6 +894,7 @@
         <section class="pane" id="tab-live">
           <div class="chips" id="routeChips"></div>
           <div class="next" id="nextCard"></div>
+          <div class="card" id="crowdCard" hidden></div>
           <div>
             <h2 id="busesH">Buses</h2>
             <div class="list" id="busList" style="margin-top: 8px"></div>
@@ -634,6 +917,8 @@
             and full buses need more buses.
           </div>
           <div class="list" id="stats"></div>
+          <h2>Crowding forecast · when to add buses</h2>
+          <div class="list" id="fcList"></div>
           <div class="btns">
             <button class="btn danger" id="resetStats">Reset requests</button>
           </div>
@@ -719,27 +1004,40 @@
 
     <!-- login screen (shown by auth.js) -->
     <div class="auth" id="auth" hidden>
-      <div class="authcard">
-        <h1>🚌 Fergana Bus</h1>
-        <div class="small muted" id="authTitle">Log in to see live buses</div>
-        <div class="small" id="authMsg"></div>
-        <div id="authForm">
-          <div style="display: flex; flex-direction: column; gap: 10px">
-            <button class="btn primary" id="tgLogin" hidden>
-              ✈️ Continue with Telegram
-            </button>
-            <button class="btn" id="googleLogin">🔵 Continue with Google</button>
-            <div class="or">or with email</div>
-            <input id="aName" type="text" placeholder="Full name" hidden />
-            <input id="aEmail" type="email" placeholder="Email" autocomplete="email" />
-            <input
-              id="aPass"
-              type="password"
-              placeholder="Password (6+ characters)"
-              autocomplete="current-password"
-            />
-            <button class="btn primary" id="aSubmit">Log in</button>
-            <button class="linkbtn" id="aSwitch">No account? Sign up</button>
+      <div class="authwrap">
+        <div class="hero">
+          <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-4M16 21v-4"/><circle cx="8" cy="14" r=".6" fill="currentColor"/><circle cx="16" cy="14" r=".6" fill="currentColor"/></svg></span>
+          <h1>Karvon</h1>
+          <p>Fergana's buses, live: where they are, how full they are, and when they arrive.</p>
+          <ul>
+            <li>🛰 Real GPS boxes on the buses</li>
+            <li>👥 Live passenger count in every bus</li>
+            <li>📈 Crowding forecast by the hour</li>
+            <li>🤖 AI assistant in Telegram</li>
+          </ul>
+        </div>
+        <div class="authcard">
+          <h2 class="title">Welcome</h2>
+          <div class="small muted" id="authTitle">Log in to see live buses</div>
+          <div class="small" id="authMsg"></div>
+          <div id="authForm">
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <button class="btn primary" id="tgLogin" hidden>
+                ✈️ Continue with Telegram
+              </button>
+              <button class="btn" id="googleLogin"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Continue with Google</button>
+              <div class="or">or with email</div>
+              <input id="aName" type="text" placeholder="Full name" hidden />
+              <input id="aEmail" type="email" placeholder="Email" autocomplete="email" />
+              <input
+                id="aPass"
+                type="password"
+                placeholder="Password (6+ characters)"
+                autocomplete="current-password"
+              />
+              <button class="btn primary" id="aSubmit">Log in</button>
+              <button class="linkbtn" id="aSwitch">No account? Sign up</button>
+            </div>
           </div>
         </div>
       </div>
@@ -872,7 +1170,7 @@
         );
         setBase(MAP_STYLES[theme], 0);
         try {
-          const c = theme === "dark" ? "#171e29" : "#ffffff";
+          const c = theme === "dark" ? "#131925" : "#ffffff";
           tg.setHeaderColor(c);
           tg.setBackgroundColor(c);
         } catch (_) {}
@@ -1302,6 +1600,7 @@
         renderNext();
         renderBuses();
         renderStats();
+        if (window.renderCrowd) renderCrowd();
       }
       function pickStop(routeId, i) {
         selRoute = routeId;
@@ -1744,6 +2043,10 @@
         renderNext();
         renderBuses();
         renderStats();
+        if (window.renderCrowd) {
+          renderCrowd();
+          renderFcStats();
+        }
       }
       // load routes.json, keep local edits unless file changed
       async function loadShared() {
@@ -1791,5 +2094,6 @@
     </script>
     <script src="auth.js"></script>
     <script src="live.js"></script>
+    <script src="forecast.js"></script>
   </body>
 </html>

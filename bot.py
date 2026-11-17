@@ -3,6 +3,8 @@
 /start  -> buttons: "Share my phone number" and "Open bus map"
 contact -> saves the phone number in Supabase (telegram_users + profiles)
 /me     -> shows your phone and role
+any text / /ask -> AI travel assistant (assistant.py)
+location -> remembered, so the assistant knows the nearest stops
 
 Login itself happens when the person opens the map (Mini App): the page sends
 Telegram's signed data to the telegram-login function, which logs them in.
@@ -13,10 +15,13 @@ import httpx
 from dotenv import load_dotenv
 from telegram import (KeyboardButton, MenuButtonWebApp, ReplyKeyboardMarkup,
                       Update, WebAppInfo)
+from telegram.constants import ChatAction
 from telegram.ext import (Application, CommandHandler, ContextTypes,
                           MessageHandler, filters)
 
 load_dotenv()
+import assistant  # noqa: E402  (needs the .env values loaded first)
+
 TOKEN = os.environ["BOT_TOKEN"]
 WEBAPP_URL = os.environ["WEBAPP_URL"]
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
@@ -30,7 +35,10 @@ if SERVICE_KEY.startswith("eyJ"):  # old-style JWT key also wants this header
 
 
 def keyboard(has_phone: bool) -> ReplyKeyboardMarkup:
-    rows = [[KeyboardButton("🗺 Open bus map", web_app=WebAppInfo(url=WEBAPP_URL))]]
+    rows = [
+        [KeyboardButton("🗺 Open bus map", web_app=WebAppInfo(url=WEBAPP_URL))],
+        [KeyboardButton("📍 Send my location", request_location=True)],
+    ]
     if not has_phone:
         rows.insert(0, [KeyboardButton("📱 Share my phone number", request_contact=True)])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
@@ -50,7 +58,13 @@ async def saved_phone(tg_id: int):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     assert update.message is not None and update.effective_user is not None
     phone = await saved_phone(update.effective_user.id)
-    text = "Salom! Avtobuslar qayerda, nechta odam bor va qachon kelishini xaritada ko'ring."
+    text = (
+        "Salom! Avtobuslar qayerda, nechta odam bor va qachon kelishini xaritada ko'ring.\n\n"
+        "🤖 Menga savol ham bering, masalan:\n"
+        "• Qaysi avtobus Mindanobodga boradi?\n"
+        "• Hozir 1-yo'nalish to'lami?\n"
+        "📍 Joylashuvingizni yuborsangiz, eng yaqin bekatni aytaman."
+    )
     if not phone:
         text += "\n\n📱 Log in with your phone number: press the button below."
     await update.message.reply_text(text, reply_markup=keyboard(bool(phone)))
@@ -99,6 +113,52 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"👤 {p['full_name'] or ''}\nRole: {p['role']}\nPhone: {p['phone'] or 'not shared'}")
 
 
+# ---------------- AI assistant ----------------
+async def got_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message
+    assert msg is not None and msg.location is not None and context.user_data is not None
+    context.user_data["loc"] = (msg.location.latitude, msg.location.longitude, msg.date.timestamp())
+    await ai_reply(update, context, "Which bus stops are nearest to me, and which buses stop there?")
+
+
+async def ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """any normal text message = a question for the assistant"""
+    assert update.message is not None
+    await ai_reply(update, context, update.message.text or "")
+
+
+async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/ask <question>"""
+    assert update.message is not None
+    q = " ".join(context.args or [])
+    if not q:
+        await update.message.reply_text("Write your question after /ask, e.g. /ask Which bus goes to the bazaar?")
+        return
+    await ai_reply(update, context, q)
+
+
+async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, question: str):
+    msg, user = update.message, update.effective_user
+    assert msg is not None and user is not None and context.user_data is not None
+    stop = assistant.allowed(user.id)
+    if stop:
+        await msg.reply_text(stop)
+        return
+    await context.bot.send_chat_action(msg.chat_id, ChatAction.TYPING)
+    # a location older than 30 minutes is probably not where they are now
+    loc = context.user_data.get("loc")
+    where = loc[:2] if loc and msg.date.timestamp() - loc[2] < 30 * 60 else None
+    try:
+        data = await assistant.build_context(db, where)
+        answer = await assistant.ask(question, data)
+    except assistant.AssistantError as e:
+        answer = f"⚠️ {e}"
+    except Exception as e:  # network problems etc.: tell the user, keep the bot running
+        print("assistant error:", repr(e))
+        answer = "⚠️ Something went wrong. Please try again in a moment."
+    await msg.reply_text(answer)
+
+
 async def post_init(app: Application):
     await app.bot.set_chat_menu_button(menu_button=MenuButtonWebApp("Map", WebAppInfo(url=WEBAPP_URL)))
 
@@ -106,5 +166,8 @@ async def post_init(app: Application):
 app = Application.builder().token(TOKEN).post_init(post_init).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("me", me))
+app.add_handler(CommandHandler("ask", ask_cmd))
 app.add_handler(MessageHandler(filters.CONTACT, got_contact))
+app.add_handler(MessageHandler(filters.LOCATION, got_location))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_chat))
 app.run_polling()

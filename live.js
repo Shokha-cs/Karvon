@@ -113,6 +113,7 @@ window.onStopRequest = (routeId, stopIndex) => {
 // called by auth.js after login / logout
 window.startLive = (user) => {
   window.stopLive();
+  if (window.loadForecast) loadForecast(true); // logged in → real forecast
   pollLive();
   liveTimer = setInterval(pollLive, LIVE_EVERY_MS);
   if (["hokimiyat", "developer"].includes(user.role)) {
@@ -125,4 +126,5 @@ window.stopLive = () => {
   clearInterval(statsTimer);
   buses = buses.filter((b) => !b.live);
   buses.forEach((b) => (b.hide = false));
+  if (window.loadForecast) loadForecast(true);
 };
