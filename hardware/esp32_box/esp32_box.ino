@@ -1,13 +1,5 @@
-// Fergana Bus GPS box — ESP32 + GPS module (NEO-6M or similar) over Wi-Fi.
-// Every 5 seconds: read GPS -> send {bus_id, device_key, lat, lng, passengers}
-// to Supabase. Same request as tools/fake_box.py.
-//
-// Arduino IDE libraries: "TinyGPSPlus" (by Mikal Hart). ESP32 board package.
-// Wiring (GPS -> ESP32): VCC->3V3, GND->GND, TX->GPIO16, RX->GPIO17
-//
-// IMPORTANT: this needs Wi-Fi (phone hotspot works). A SIM800L GSM module
-// can NOT do modern HTTPS — if your box uses SIM800, tell Shokh, it needs
-// a different approach (SIM7600 / A7670 modules can).
+// ESP32 + GPS box, sends position every 5s (needs wifi, SIM800L can't do https)
+// lib: TinyGPSPlus. wiring: VCC->3V3, GND->GND, TX->GPIO16, RX->GPIO17
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -25,7 +17,7 @@ const char* DEVICE_KEY = "change-me-box-1";                 // same row's device
 
 TinyGPSPlus gps;
 HardwareSerial GPSSerial(2);
-int passengers = 0;          // <- your passenger counter (IR sensors etc.) updates this
+int passengers = 0;          // passenger counter
 unsigned long lastSend = 0;
 
 void setup() {
@@ -39,7 +31,7 @@ void setup() {
 
 void sendPosition(double lat, double lng) {
   WiFiClientSecure client;
-  client.setInsecure();      // skip certificate check (fine for hackathon demo)
+  client.setInsecure();      // no cert check
   HTTPClient http;
   http.begin(client, SUPA_URL);
   http.addHeader("Content-Type", "application/json");

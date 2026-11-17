@@ -1,12 +1,5 @@
-"""Pretends to be a GPS box: drives along a route from routes.json and
-sends the position to Supabase every few seconds, exactly like the real box.
-
-Use it to test the whole chain (box -> database -> map) without hardware:
-    python tools/fake_box.py --bus 1-1 --key change-me-box-1 --route 1
-
-Needs SUPABASE_URL and SUPABASE_ANON_KEY in .env (same as the bot) or
-in your environment. Only Python's standard library is used.
-"""
+# fake gps box for testing without hardware
+# python tools/fake_box.py --bus 1-1 --key change-me-box-1 --route 1
 import argparse
 import json
 import math
@@ -30,7 +23,6 @@ def load_env():
 
 
 def dist(a, b):
-    """metres between two [lat, lng] points"""
     R = 6371000
     dlat, dlng = math.radians(b[0] - a[0]), math.radians(b[1] - a[1])
     h = math.sin(dlat / 2) ** 2 + math.cos(math.radians(a[0])) * math.cos(math.radians(b[0])) * math.sin(dlng / 2) ** 2
@@ -67,10 +59,9 @@ def main():
     r = next(x for x in routes if x["name"] == a.route)
     line = [p[:2] for p in (r.get("path") or r["stops"])]
 
-    pos, i, passengers = 0.0, 0, 10  # distance along current segment, segment index
+    pos, i, passengers = 0.0, 0, 10
     print(f"Driving bus {a.bus} on route {a.route} ({len(line)} points). Ctrl+C to stop.")
     while True:
-        # move forward along the line
         step = a.speed * a.every
         while step > 0:
             seg = dist(line[i], line[i + 1])
@@ -80,7 +71,7 @@ def main():
             else:
                 step -= seg - pos
                 pos, i = 0.0, i + 1
-                if i >= len(line) - 1:  # end of route: turn around
+                if i >= len(line) - 1:  # turn around
                     line.reverse()
                     i = 0
         seg = dist(line[i], line[i + 1]) or 1

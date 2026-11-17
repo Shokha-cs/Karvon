@@ -1,33 +1,22 @@
-"""AI travel assistant for the Telegram bot.
-
-How it works (no magic):
-1. We collect REAL data: the routes and stop names (routes.json), where every
-   bus is right now and how many passengers it has (bus_positions), and how
-   full each route usually is at this hour (crowd_forecast in the database).
-2. We send that data + the passenger's question to Google Gemini.
-3. Gemini answers in the passenger's language, using ONLY that data.
-
-Needs GEMINI_API_KEY in .env (free key: https://aistudio.google.com/apikey).
-"""
+# AI assistant: routes + live buses + forecast -> gemini
+# needs GEMINI_API_KEY in .env
 import json
 import math
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import httpx
 
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
-# "gemini-flash-latest" always points to Google's current Flash model.
-# If Google renames it, put another model name in .env (GEMINI_MODEL=...).
+# can change model in .env
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-TZ = ZoneInfo("Asia/Tashkent")  # Fergana time
-CAP = 60  # passengers per bus = 100% full (same as the website)
-OFFLINE_AFTER_S = 120  # no report for 2 min = bus offline (same as the website)
+TZ = timezone(timedelta(hours=5))  # fergana UTC+5
+CAP = 60  # = 100% full
+OFFLINE_AFTER_S = 120
 ROUTES_FILE = Path(__file__).with_name("routes.json")
 
 SYSTEM_PROMPT = """You are Karvon, the bus assistant for the city of Fergana, Uzbekistan.
@@ -49,12 +38,12 @@ Rules:
 - Off-topic questions: politely say you only help with Fergana buses."""
 
 
-# ---------------------------------------------------------------- data helpers
+# data helpers
 _routes_cache = {"mtime": None, "routes": []}
 
 
 def load_routes():
-    """routes.json, re-read only when the file changes"""
+    # reload only if file changed
     mtime = ROUTES_FILE.stat().st_mtime
     if _routes_cache["mtime"] != mtime:
         _routes_cache["routes"] = json.loads(ROUTES_FILE.read_text(encoding="utf-8"))
@@ -63,7 +52,7 @@ def load_routes():
 
 
 def stops_of(route):
-    """[(name, lat, lng), ...]; [lat, lng, 0] is a turn point, not a stop"""
+    # skip turn points
     out = []
     for s in route["stops"]:
         if len(s) > 2 and s[2] == 0:
@@ -74,7 +63,6 @@ def stops_of(route):
 
 
 def dist(a_lat, a_lng, b_lat, b_lng):
-    """metres between two points"""
     R = 6371000
     dlat, dlng = math.radians(b_lat - a_lat), math.radians(b_lng - a_lng)
     h = (math.sin(dlat / 2) ** 2
@@ -87,11 +75,11 @@ def nearest_stop(route, lat, lng):
 
 
 def parse_time(text):
-    """Supabase timestamp → seconds. Older Python can't read every format, so tidy it first."""
+    # fix fraction digits so fromisoformat works
     t = text.replace("Z", "+00:00")
-    if "." in t:  # fraction of a second: make it exactly 6 digits
+    if "." in t:
         head, rest = t.split(".", 1)
-        digits = rest[: len(rest) - len(rest.lstrip("0123456789"))]  # leading digits only
+        digits = rest[: len(rest) - len(rest.lstrip("0123456789"))]
         t = f"{head}.{(digits + '000000')[:6]}{rest[len(digits):]}"
     return datetime.fromisoformat(t).timestamp()
 
@@ -101,15 +89,13 @@ def load_word(passengers):
     return "very full" if f > 0.8 else "some seats" if f > 0.5 else "plenty of seats"
 
 
-# ------------------------------------------------------------- build the context
+# context for the AI
 async def build_context(db, user_location=None):
-    """Everything the AI is allowed to know, as plain text.
-    db = the bot's Supabase helper (bot.py → db)."""
     routes = load_routes()
     now = datetime.now(TZ)
     lines = [f"Current time in Fergana: {now:%A %H:%M}.", ""]
 
-    # 1. routes and stops
+    # routes
     lines.append("ROUTES (stops in order, buses go both ways):")
     for r in routes:
         info = [f"{r.get('buses') or '?'} buses"]
@@ -119,7 +105,7 @@ async def build_context(db, user_location=None):
         lines.append("  " + " → ".join(s[0] for s in stops_of(r)))
     lines.append("")
 
-    # 2. live buses (only the ones with a real GPS box)
+    # live gps buses
     by_name = {str(r["name"]): r for r in routes}
     resp = await db("GET", "bus_positions?select=bus_id,route,lat,lng,passengers,updated_at")
     rows = resp.json() if resp.is_success else []
@@ -137,7 +123,7 @@ async def build_context(db, user_location=None):
     lines += live or ["None online right now. Only the timetable data above is available."]
     lines.append("")
 
-    # 3. crowding forecast for this hour and the next 3
+    # forecast, now + 3h
     resp = await db("POST", "rpc/crowd_forecast", json={})
     fc = resp.json() if resp.is_success else []
     hours = range(now.hour, min(24, now.hour + 4))
@@ -157,7 +143,7 @@ async def build_context(db, user_location=None):
         lines.append("Not enough data collected yet.")
     lines.append("")
 
-    # 4. where the passenger is (only if they shared their location)
+    # user location if shared
     if user_location:
         lat, lng = user_location
         near = sorted(
@@ -173,9 +159,9 @@ async def build_context(db, user_location=None):
     return "\n".join(lines)
 
 
-# ------------------------------------------------------------------ ask Gemini
+# gemini
 class AssistantError(Exception):
-    """message is safe to show to the passenger"""
+    pass
 
 
 async def ask(question: str, context_text: str) -> str:
@@ -203,18 +189,17 @@ async def ask(question: str, context_text: str) -> str:
     if not text:
         print("gemini empty answer:", json.dumps(data)[:500])
         raise AssistantError("Sorry, I couldn't answer that. Try asking in another way.")
-    return text[:3500]  # Telegram limit is 4096
+    return text[:3500]  # telegram limit 4096
 
 
-# ---------------------------------------------------------------- rate limits
-# The free Gemini key has limits, so one person can't use them all up.
+# rate limit per user (free key)
 MIN_GAP_S = 4
 PER_DAY = 40
 _last, _count = {}, {}
 
 
 def allowed(user_id: int):
-    """None if OK, otherwise a message for the user"""
+    # None = ok
     now, today = time.time(), datetime.now(TZ).date()
     if now - _last.get(user_id, 0) < MIN_GAP_S:
         return "One question at a time, please 🙂"

@@ -1,21 +1,15 @@
-// LOGIN + ROLES
-// Uses Supabase Auth. Supabase saves the session in the browser, so a person
-// who logged in once is logged in automatically next time.
-//   Website:  email + password, or Google
-//   Telegram: "Continue with Telegram" (checked by the telegram-login function)
-// After login we read the person's role from the `profiles` table:
-//   passenger → Live tab   hokimiyat → Live + Hokimiyat   developer → everything
+// login + roles (supabase auth, session saved in browser)
 
 const cfg = window.KARVON_CONFIG || {};
 const sb =
   cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase
     ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
-    : null; // no config = demo mode, no login
+    : null; // no config = demo mode
 
 let me = null; // { id, email, full_name, phone, role }
 let signingUp = false;
 
-// ---------- small helpers ----------
+// helpers
 function authMsg(text, isError) {
   $("authMsg").textContent = text || "";
   $("authMsg").className = "small" + (isError ? " err" : "");
@@ -24,8 +18,8 @@ function showLogin(text, isError) {
   $("auth").hidden = false;
   $("authForm").hidden = false;
   $("userBtn").hidden = true;
-  $("tgLogin").hidden = !inTelegram; // Telegram button only inside Telegram
-  $("googleLogin").hidden = inTelegram; // Google blocks logins inside Telegram's browser
+  $("tgLogin").hidden = !inTelegram;
+  $("googleLogin").hidden = inTelegram; // google blocked in telegram
   authMsg(text, isError);
 }
 function showLoading(text) {
@@ -34,7 +28,7 @@ function showLoading(text) {
   authMsg(text);
 }
 
-// ---------- roles ----------
+// roles
 function applyRole(role) {
   const allowed = {
     passenger: ["live"],
@@ -44,13 +38,13 @@ function applyRole(role) {
   document.querySelectorAll(".tabs button").forEach((b) => {
     b.hidden = !allowed.includes(b.dataset.tab);
   });
-  // if the open tab is not allowed, go back to Live
+  // not allowed tab -> back to live
   if (!allowed.includes(tab)) document.querySelector('.tabs [data-tab="live"]').click();
-  // requests now come from the database, resetting the local counter means nothing
+  // requests come from db now
   $("resetStats").hidden = true;
 }
 
-// ---------- after any successful login ----------
+// after login
 async function afterLogin(session) {
   showLoading("Loading your account…");
   const { data: prof, error } = await sb
@@ -66,7 +60,7 @@ async function afterLogin(session) {
   if (window.startLive) window.startLive(me);
 }
 
-// ---------- email + password ----------
+// email
 $("aSwitch").onclick = () => {
   signingUp = !signingUp;
   $("aName").hidden = !signingUp;
@@ -88,29 +82,25 @@ $("aSubmit").onclick = async () => {
       options: { data: { full_name: $("aName").value.trim() } },
     });
     if (error) return authMsg(error.message, true);
-    // if "Confirm email" is ON in Supabase there is no session yet
+    // no session if confirm email is on
     if (!data.session) authMsg("Account created. Check your email to confirm, then log in.");
   } else {
     const { error } = await sb.auth.signInWithPassword({ email, password });
     if (error) return authMsg(error.message, true);
   }
-  // success → onAuthStateChange below calls afterLogin
+  // onAuthStateChange handles the rest
 };
 
-// ---------- Google ----------
+// google
 $("googleLogin").onclick = async () => {
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: location.origin + location.pathname },
   });
   if (error) authMsg(error.message, true);
-  // the page goes to Google and comes back logged in
 };
 
-// ---------- Telegram ----------
-// tg.initData is signed by Telegram with our bot token. Only our server
-// function (which knows the token) can check it, so we send it there and get
-// back a one-time login token.
+// telegram: server function checks initData, returns login token
 async function telegramLogin() {
   showLoading("Logging in with Telegram…");
   const { data, error } = await sb.functions.invoke("telegram-login", {
@@ -123,7 +113,7 @@ async function telegramLogin() {
 }
 $("tgLogin").onclick = telegramLogin;
 
-// ---------- account button / logout ----------
+// account / logout
 $("userBtn").onclick = () => {
   if (!me) return;
   const who = me.full_name || me.email || me.phone || "you";
@@ -133,14 +123,14 @@ $("userBtn").onclick = () => {
   else if (confirm(text)) out();
 };
 
-// ---------- start ----------
+// start
 function startAuth() {
-  if (!sb) return; // demo mode: keep the old behaviour, no login
+  if (!sb) return; // demo mode
   showLoading("Loading…");
   let triedTelegram = false;
-  // runs on page load (INITIAL_SESSION), after login (SIGNED_IN) and logout (SIGNED_OUT)
+  // page load, login, logout
   sb.auth.onAuthStateChange((event, session) => {
-    // setTimeout: Supabase says don't call other Supabase functions inside this callback directly
+    // setTimeout: dont call supabase inside this callback
     setTimeout(() => {
       if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") return;
       if (session) {
@@ -151,7 +141,7 @@ function startAuth() {
       if (window.stopLive) window.stopLive();
       if (inTelegram && !triedTelegram && event === "INITIAL_SESSION") {
         triedTelegram = true;
-        telegramLogin(); // inside Telegram: log in automatically
+        telegramLogin(); // auto login in telegram
       } else showLogin(event === "SIGNED_OUT" ? "You logged out." : "");
     }, 0);
   });

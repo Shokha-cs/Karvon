@@ -1,25 +1,18 @@
-// CROWDING FORECAST
-// "How full is this route usually at each hour of the day?"
-//
-// Real data: the GPS boxes save every report to bus_history. The database
-// function crowd_forecast() (supabase/schema.sql) averages the passenger count
-// per route and per hour (Fergana time) over the last 28 days.
-//
-// No real data yet (or demo mode without login): we show an EXAMPLE pattern
-// and say so clearly on screen, so nobody mistakes it for real numbers.
+// crowding forecast: avg passengers per hour (crowd_forecast in db, last 28 days)
+// no data yet -> example pattern, labeled on screen
 
-const FC_CAP = 60; // passengers per bus = 100% full (same as the map)
-const FC_MIN_SAMPLES = 30; // fewer readings than this for a route = not enough to trust
-const FC_FIRST = 6, // hours shown on the chart: 06:00 … 22:00
+const FC_CAP = 60; // = 100% full
+const FC_MIN_SAMPLES = 30; // less = use example
+const FC_FIRST = 6, // chart hours
   FC_LAST = 22;
 const FC_REFRESH_MS = 5 * 60 * 1000;
 
-let fcData = {}; // route name → { hours: [24 × {avg, n} | null], n, example }
+let fcData = {}; // route name -> { hours[24], n, example }
 let fcLoadedAt = 0,
   fcLoading = null,
   fcWasLoggedIn = false;
 
-// current hour in Fergana (the phone may be set to another time zone)
+// hour in fergana
 function fcHour() {
   const h = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Tashkent",
@@ -30,12 +23,11 @@ function fcHour() {
 }
 const fcHH = (h) => String(h).padStart(2, "0") + ":00";
 
-// typical city pattern: morning and evening rush. Slightly different per route
-// so the example doesn't look copy-pasted. ONLY used when there is no real data.
+// example pattern (only when no real data)
 function fcExample(name) {
   let seed = 0;
   for (const c of String(name)) seed = (seed * 31 + c.charCodeAt(0)) % 997;
-  const shift = (seed % 3) - 1, // rush hour 1 h earlier / same / later
+  const shift = (seed % 3) - 1,
     scale = 0.85 + (seed % 5) * 0.05;
   const bump = (h, mid, width, height) =>
     height * Math.exp(-((h - mid) ** 2) / (2 * width * width));
@@ -55,7 +47,7 @@ async function loadForecast(force) {
   if (!force && loggedIn === fcWasLoggedIn && Date.now() - fcLoadedAt < FC_REFRESH_MS) return;
   if (fcLoading) return fcLoading;
   fcLoading = (async () => {
-    await null; // let `fcLoading` be set before the work starts
+    await null; // so fcLoading is set first
     const real = {};
     if (loggedIn) {
       const { data, error } = await sb.rpc("crowd_forecast", { p_route: null });
@@ -85,7 +77,7 @@ async function loadForecast(force) {
   return fcLoading;
 }
 
-// small bar chart, one bar per hour
+// bar per hour
 function fcBars(f, now, compact) {
   const cols = [];
   for (let h = FC_FIRST; h <= FC_LAST; h++) {
@@ -110,7 +102,7 @@ function fcSource(f) {
     : `<div class="fcnote">Based on ${f.n.toLocaleString()} readings from the GPS boxes, last 4 weeks.</div>`;
 }
 
-// Live tab: "Usually busy" card for the selected route
+// live tab card
 function renderCrowd() {
   const el = document.getElementById("crowdCard");
   if (!el) return;
@@ -120,14 +112,14 @@ function renderCrowd() {
   const f = fcData[r.name];
   if (!f) {
     el.innerHTML = `<div class="cardhead"><h2>Crowding forecast</h2></div><div class="empty small">Loading…</div>`;
-    if (!fcLoading) loadForecast(true); // routes changed (e.g. routes.json loaded) → rebuild
+    if (!fcLoading) loadForecast(true); // routes changed
     return;
   }
   const now = fcHour(),
     cur = f.hours[now];
   const pct = (v) => Math.round(Math.min(1, v.avg / FC_CAP) * 100);
 
-  // best time in the next 3 hours (including now)
+  // best hour in next 3h
   let best = null;
   for (let h = now; h <= Math.min(23, now + 3); h++) {
     const v = f.hours[h];
@@ -156,7 +148,7 @@ function renderCrowd() {
     fcSource(f);
 }
 
-// Hokimiyat tab: which routes need more buses, and when
+// hokimiyat: when to add buses
 function renderFcStats() {
   const el = document.getElementById("fcList");
   if (!el) return;
@@ -166,7 +158,7 @@ function renderFcStats() {
     .map((r) => {
       const f = fcData[r.name];
       if (!f) return "";
-      // group busy hours (≥ 75% full) into ranges like 07:00–09:00
+      // 75%+ hours -> ranges
       const ranges = [];
       for (let h = 0; h < 24; h++) {
         const v = f.hours[h];
@@ -191,10 +183,10 @@ function renderFcStats() {
     el.innerHTML += `<div class="fcnote warn">Routes marked “Example” have no real GPS data yet. Their pattern is only an illustration.</div>`;
 }
 
-// refresh now and then; also when login changes (auth.js → live.js → startLive)
+// refresh every minute
 setInterval(() => {
   loadForecast();
-  renderCrowd(); // the hour may have changed
+  renderCrowd();
   renderFcStats();
 }, 60 * 1000);
 document.addEventListener("DOMContentLoaded", () => loadForecast(true));

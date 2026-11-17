@@ -1,9 +1,6 @@
--- Fergana Bus database. Paste this whole file into Supabase → SQL Editor → Run.
--- Safe to run again (drops and recreates the functions/policies).
+-- Karvon database. paste all into SQL Editor -> Run (safe to rerun)
 
--- ============================================================
--- 1. PROFILES: one row per logged-in person + their role
--- ============================================================
+-- 1. profiles + roles
 create table if not exists public.profiles (
   id          uuid primary key references auth.users (id) on delete cascade,
   email       text,
@@ -19,10 +16,9 @@ alter table public.profiles enable row level security;
 drop policy if exists "read own profile" on public.profiles;
 create policy "read own profile" on public.profiles
   for select to authenticated using (id = auth.uid());
--- no update policy: users can NOT change their own role.
--- You change roles yourself in Table Editor → profiles → role.
+-- no update policy: roles only changed in table editor
 
--- when someone signs up (email, Google or Telegram) → make their profile
+-- new user -> profile
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -38,26 +34,22 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- role of whoever is calling (used in policies below)
+-- caller role
 create or replace function public.my_role()
 returns text language sql stable security definer set search_path = public as $$
   select role from public.profiles where id = auth.uid()
 $$;
 
--- ============================================================
--- 2. DEVICES: the GPS boxes. Each box has a secret key.
--- ============================================================
+-- 2. gps boxes + their keys
 create table if not exists public.devices (
-  bus_id     text primary key,          -- e.g. '1-1'  (route 1, bus 1)
-  route      text not null,             -- route NUMBER as on the map: '1', '2', '3'
-  device_key text not null              -- secret, also written in the box's code
+  bus_id     text primary key,          -- '1-1'
+  route      text not null,             -- route number
+  device_key text not null              -- secret
 );
 alter table public.devices enable row level security;
--- no policies = nobody can read keys through the API
+-- no policies = keys not readable
 
--- ============================================================
--- 3. BUS POSITIONS: latest position of every bus (1 row per bus)
--- ============================================================
+-- 3. latest position per bus
 create table if not exists public.bus_positions (
   bus_id     text primary key references public.devices (bus_id) on delete cascade,
   route      text not null,
@@ -71,7 +63,7 @@ drop policy if exists "logged in users see buses" on public.bus_positions;
 create policy "logged in users see buses" on public.bus_positions
   for select to authenticated using (true);
 
--- history of every report (for hokimiyat analytics later)
+-- all reports (for forecast / analytics)
 create table if not exists public.bus_history (
   id         bigserial primary key,
   bus_id     text not null,
@@ -86,11 +78,7 @@ drop policy if exists "staff see history" on public.bus_history;
 create policy "staff see history" on public.bus_history
   for select to authenticated using (public.my_role() in ('hokimiyat', 'developer'));
 
--- ============================================================
--- 4. THE HARDWARE ENDPOINT
--- The box calls:  POST https://<project>.supabase.co/rest/v1/rpc/report_position
--- body: {"bus_id":"1-1","device_key":"...","lat":40.38,"lng":71.78,"passengers":12}
--- ============================================================
+-- 4. hardware endpoint: POST /rest/v1/rpc/report_position
 drop function if exists public.report_position(text, text, double precision, double precision, int);
 create function public.report_position(
   bus_id text, device_key text, lat double precision, lng double precision, passengers int)
@@ -99,7 +87,7 @@ returns text language plpgsql security definer set search_path = public as $$
 declare
   v_route text;
 begin
-  -- 1. is this a real box with the right key?
+  -- check key
   select d.route into v_route from devices d
    where d.bus_id = report_position.bus_id
      and d.device_key = report_position.device_key;
@@ -107,12 +95,12 @@ begin
     raise exception 'wrong bus_id or device_key';
   end if;
 
-  -- 2. sanity check (Fergana region, sane passenger count)
+  -- inside fergana region?
   if report_position.lat not between 39 and 42 or report_position.lng not between 69 and 74 then
     raise exception 'position outside Fergana region';
   end if;
 
-  -- 3. save latest position (insert first time, update after)
+  -- upsert latest
   insert into bus_positions (bus_id, route, lat, lng, passengers, updated_at)
   values (report_position.bus_id, v_route, report_position.lat, report_position.lng,
           greatest(0, least(200, report_position.passengers)), now())
@@ -120,7 +108,7 @@ begin
      set route = excluded.route, lat = excluded.lat, lng = excluded.lng,
          passengers = excluded.passengers, updated_at = now();
 
-  -- 4. keep history
+  -- history
   insert into bus_history (bus_id, route, lat, lng, passengers)
   values (report_position.bus_id, v_route, report_position.lat, report_position.lng,
           greatest(0, least(200, report_position.passengers)));
@@ -129,9 +117,7 @@ end $$;
 revoke all on function public.report_position(text, text, double precision, double precision, int) from public;
 grant execute on function public.report_position(text, text, double precision, double precision, int) to anon, authenticated;
 
--- ============================================================
--- 5. STOP REQUESTS: a passenger checked a stop = demand signal
--- ============================================================
+-- 5. stop requests (demand)
 create table if not exists public.stop_requests (
   id         bigserial primary key,
   user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -147,10 +133,7 @@ drop policy if exists "staff see requests" on public.stop_requests;
 create policy "staff see requests" on public.stop_requests
   for select to authenticated using (public.my_role() in ('hokimiyat', 'developer'));
 
--- ============================================================
--- 6. TELEGRAM USERS: phone numbers shared in the bot
--- (only the bot / edge function touch this, with the secret key)
--- ============================================================
+-- 6. telegram phones (bot only)
 create table if not exists public.telegram_users (
   tg_id      bigint primary key,
   phone      text,
@@ -160,13 +143,7 @@ create table if not exists public.telegram_users (
 );
 alter table public.telegram_users enable row level security;
 
--- ============================================================
--- 7. CROWDING FORECAST: how full is each route, hour by hour?
--- Average passengers per hour (Fergana time) from bus_history, last 28 days.
--- Passengers see the forecast too, but only these averages, never the raw history.
--- Call:  select * from crowd_forecast();        -- all routes
---        select * from crowd_forecast('1');     -- one route
--- ============================================================
+-- 7. crowding forecast: avg passengers per hour, last 28 days
 create index if not exists bus_history_time_idx on public.bus_history (time);
 
 drop function if exists public.crowd_forecast(text, int);
@@ -186,9 +163,7 @@ $$;
 revoke all on function public.crowd_forecast(text, int) from public;
 grant execute on function public.crowd_forecast(text, int) to authenticated, service_role;
 
--- ============================================================
--- 8. TEST DATA: two boxes. CHANGE THE KEYS before the demo.
--- ============================================================
+-- 8. test boxes (change keys before demo)
 insert into public.devices (bus_id, route, device_key) values
   ('1-1', '1', 'change-me-box-1'),
   ('2-1', '2', 'change-me-box-2')

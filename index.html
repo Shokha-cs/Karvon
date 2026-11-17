@@ -23,13 +23,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
     <script src="config.js"></script>
     <style>
-      /* ===== KARVON DESIGN =====
-         Light by default, dark via the moon button.
-         All colours live here as variables: change one line, the whole app follows. */
+      /* colors: light default, dark via button */
       :root {
         --bg: #eef1f6;
         --card: #ffffff;
-        --card-2: #f6f8fb; /* inner boxes inside a card */
+        --card-2: #f6f8fb;
         --ink: #101828;
         --muted: #667085;
         --line: #e4e8ef;
@@ -133,7 +131,7 @@
         border-color: var(--line) !important;
       }
 
-      /* ---------- top bar (floats over the map) ---------- */
+      /* top bar */
       .topbar {
         position: absolute;
         top: calc(12px + env(safe-area-inset-top));
@@ -237,7 +235,7 @@
         bottom: 24px;
       }
 
-      /* ---------- side panel (bottom sheet on phones) ---------- */
+      /* side panel / bottom sheet on phone */
       #panel {
         background: var(--bg);
         border-left: 1px solid var(--line);
@@ -326,7 +324,7 @@
         }
       }
 
-      /* ---------- shared pieces ---------- */
+      /* shared */
       h2 {
         margin: 0;
         font-size: 12px;
@@ -500,7 +498,7 @@
         background: color-mix(in srgb, var(--bad) 14%, transparent);
       }
 
-      /* crowding forecast bars */
+      /* forecast bars */
       .fcbars {
         display: flex;
         align-items: flex-end;
@@ -687,7 +685,7 @@
         box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 25%, transparent);
       }
 
-      /* ---------- login screen ---------- */
+      /* login screen */
       .auth {
         position: fixed;
         inset: 0;

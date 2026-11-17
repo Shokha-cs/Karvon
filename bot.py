@@ -1,14 +1,5 @@
-"""Fergana Bus Telegram bot.
-
-/start  -> buttons: "Share my phone number" and "Open bus map"
-contact -> saves the phone number in Supabase (telegram_users + profiles)
-/me     -> shows your phone and role
-any text / /ask -> AI travel assistant (assistant.py)
-location -> remembered, so the assistant knows the nearest stops
-
-Login itself happens when the person opens the map (Mini App): the page sends
-Telegram's signed data to the telegram-login function, which logs them in.
-"""
+# Karvon telegram bot
+# /start, phone share, /me, location, any text = AI question
 import os
 
 import httpx
@@ -20,17 +11,16 @@ from telegram.ext import (Application, CommandHandler, ContextTypes,
                           MessageHandler, filters)
 
 load_dotenv()
-import assistant  # noqa: E402  (needs the .env values loaded first)
+import assistant  # noqa: E402  (after load_dotenv)
 
 TOKEN = os.environ["BOT_TOKEN"]
 WEBAPP_URL = os.environ["WEBAPP_URL"]
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
-# secret / service_role key: the bot is a server, it may write to protected tables.
-# NEVER put this key in config.js or on GitHub.
+# secret key, only in .env
 SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 
 HEADERS = {"apikey": SERVICE_KEY, "Content-Type": "application/json"}
-if SERVICE_KEY.startswith("eyJ"):  # old-style JWT key also wants this header
+if SERVICE_KEY.startswith("eyJ"):  # old jwt key
     HEADERS["Authorization"] = f"Bearer {SERVICE_KEY}"
 
 
@@ -73,7 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def got_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg, user = update.message, update.effective_user
     assert msg is not None and msg.contact is not None and user is not None
-    # people can send someone else's contact card; only accept their own number
+    # only accept their own number
     if msg.contact.user_id != user.id:
         await msg.reply_text("Please share YOUR number with the button below.", reply_markup=keyboard(False))
         return
@@ -81,7 +71,7 @@ async def got_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not phone.startswith("+"):
         phone = "+" + phone
 
-    # 1. remember phone for this Telegram account (insert or update)
+    # save phone (upsert)
     r = await db(
         "POST",
         "telegram_users?on_conflict=tg_id",
@@ -92,7 +82,7 @@ async def got_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(f"⚠️ Could not save your number ({r.status_code}). Try again later.")
         print("telegram_users error:", r.status_code, r.text)
         return
-    # 2. if they already opened the map before, put the phone on their profile too
+    # also update profile if it exists
     await db("PATCH", f"profiles?telegram_id=eq.{user.id}", json={"phone": phone})
 
     await msg.reply_text(
@@ -113,7 +103,7 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"👤 {p['full_name'] or ''}\nRole: {p['role']}\nPhone: {p['phone'] or 'not shared'}")
 
 
-# ---------------- AI assistant ----------------
+# AI assistant
 async def got_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     assert msg is not None and msg.location is not None and context.user_data is not None
@@ -122,13 +112,11 @@ async def got_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """any normal text message = a question for the assistant"""
     assert update.message is not None
     await ai_reply(update, context, update.message.text or "")
 
 
 async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/ask <question>"""
     assert update.message is not None
     q = " ".join(context.args or [])
     if not q:
@@ -145,7 +133,7 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, question:
         await msg.reply_text(stop)
         return
     await context.bot.send_chat_action(msg.chat_id, ChatAction.TYPING)
-    # a location older than 30 minutes is probably not where they are now
+    # ignore location older than 30 min
     loc = context.user_data.get("loc")
     where = loc[:2] if loc and msg.date.timestamp() - loc[2] < 30 * 60 else None
     try:
@@ -153,7 +141,7 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, question:
         answer = await assistant.ask(question, data)
     except assistant.AssistantError as e:
         answer = f"⚠️ {e}"
-    except Exception as e:  # network problems etc.: tell the user, keep the bot running
+    except Exception as e:  # keep bot running
         print("assistant error:", repr(e))
         answer = "⚠️ Something went wrong. Please try again in a moment."
     await msg.reply_text(answer)
