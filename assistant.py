@@ -119,6 +119,8 @@ async def build_context(db, user_location=None):
         if age > OFFLINE_AFTER_S or not r:
             continue
         d, stop = nearest_stop(r, b["lat"], b["lng"])
+        if d is None:  # route has no stops
+            continue
         live.append(f"Bus {b['bus_id']} on route {r['name']}: near stop \"{stop}\" (~{round(d)} m), "
                     f"{b['passengers']}/{CAP} passengers ({load_word(b['passengers'])}), "
                     f"reported {round(age)} s ago.")

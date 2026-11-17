@@ -4,9 +4,10 @@ import os
 
 import httpx
 from dotenv import load_dotenv
-from telegram import (BotCommand, InlineKeyboardButton, InlineKeyboardMarkup,
-                      KeyboardButton, MenuButtonWebApp, ReplyKeyboardMarkup,
-                      Update, WebAppInfo)
+from telegram import (BotCommand, CallbackQuery, Chat, InlineKeyboardButton,
+                      InlineKeyboardMarkup, KeyboardButton, Message,
+                      MenuButtonWebApp, ReplyKeyboardMarkup, Update, User,
+                      WebAppInfo)
 from telegram.constants import ChatAction
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, MessageHandler, filters)
@@ -24,6 +25,32 @@ SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 HEADERS = {"apikey": SERVICE_KEY, "Content-Type": "application/json"}
 if SERVICE_KEY.startswith("eyJ"):  # old jwt key
     HEADERS["Authorization"] = f"Bearer {SERVICE_KEY}"
+
+
+# small getters so the type checker knows these are not None
+def message(u: Update) -> Message:
+    assert u.message is not None
+    return u.message
+
+
+def tg_user(u: Update) -> User:
+    assert u.effective_user is not None
+    return u.effective_user
+
+
+def chat(u: Update) -> Chat:
+    assert u.effective_chat is not None
+    return u.effective_chat
+
+
+def query(u: Update) -> CallbackQuery:
+    assert u.callback_query is not None
+    return u.callback_query
+
+
+def udata(c: ContextTypes.DEFAULT_TYPE) -> dict:
+    assert c.user_data is not None
+    return c.user_data
 
 
 async def db(method: str, path: str, **kw) -> httpx.Response:
@@ -49,9 +76,9 @@ async def get_user(tg_id: int) -> dict:
 
 
 async def get_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str | None:
-    ud = context.user_data
+    ud = udata(context)
     if "lang" not in ud:
-        ud["lang"] = (await get_user(update.effective_user.id)).get("lang")
+        ud["lang"] = (await get_user(tg_user(update).id)).get("lang")
     return ud["lang"]
 
 
@@ -60,7 +87,7 @@ async def lang_of(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     lang = await get_lang(update, context)
     if lang:
         return lang
-    code = (update.effective_user.language_code or "")[:2]
+    code = (tg_user(update).language_code or "")[:2]
     return code if code in LANGS else "uz"
 
 
@@ -86,7 +113,7 @@ def lang_picker(after: str) -> InlineKeyboardMarkup:
 
 
 async def send_welcome(chat, update: Update, lang: str):
-    phone = (await get_user(update.effective_user.id)).get("phone")
+    phone = (await get_user(tg_user(update).id)).get("phone")
     await chat.send_message(t("welcome", lang), reply_markup=map_button(lang))
     await chat.send_message(t("menu_below" if phone else "share_phone", lang), reply_markup=keyboard(lang, bool(phone)))
 
@@ -95,20 +122,20 @@ async def send_welcome(chat, update: Update, lang: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_lang(update, context)
     if not lang:  # first time: pick a language
-        await update.message.reply_text("🌐 Tilni tanlang / Выберите язык / Choose language:",
+        await message(update).reply_text("🌐 Tilni tanlang / Выберите язык / Choose language:",
                                         reply_markup=lang_picker("start"))
         return
-    await send_welcome(update.effective_chat, update, lang)
+    await send_welcome(chat(update), update, lang)
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await lang_of(update, context)
-    await update.message.reply_text(t("help", lang), reply_markup=map_button(lang))
+    await message(update).reply_text(t("help", lang), reply_markup=map_button(lang))
 
 
 async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE, edit=False):
     lang = await lang_of(update, context)
-    user = update.effective_user
+    user = tg_user(update)
     tu = await get_user(user.id)
     r = await db("GET", f"profiles?telegram_id=eq.{user.id}&select=role,full_name,phone")
     prof = (r.json() or [{}])[0] if r.is_success and r.json() else {}
@@ -124,16 +151,16 @@ async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE, edit=Fals
         [InlineKeyboardButton(t("s_close", lang), callback_data="set:close")],
     ])
     if edit:
-        await update.callback_query.edit_message_text(text, reply_markup=buttons)
+        await query(update).edit_message_text(text, reply_markup=buttons)
     else:
-        await update.message.reply_text(text, reply_markup=buttons)
+        await message(update).reply_text(text, reply_markup=buttons)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await lang_of(update, context)
-    context.user_data.pop("await", None)
-    phone = (await get_user(update.effective_user.id)).get("phone")
-    await update.message.reply_text(t("cancelled", lang), reply_markup=keyboard(lang, bool(phone)))
+    udata(context).pop("await", None)
+    phone = (await get_user(tg_user(update).id)).get("phone")
+    await message(update).reply_text(t("cancelled", lang), reply_markup=keyboard(lang, bool(phone)))
 
 
 async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -142,22 +169,22 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # inline button clicks
 async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
+    q = query(update)
     await q.answer()
-    parts = q.data.split(":")
+    parts = (q.data or "").split(":")
 
     if parts[0] == "lang":  # lang:<code>:<start|set>
         code, after = parts[1], parts[2]
-        context.user_data["lang"] = code
-        await save_user(update.effective_user.id, lang=code)
+        udata(context)["lang"] = code
+        await save_user(tg_user(update).id, lang=code)
         if after == "start":
             await q.edit_message_text(t("lang_set", code))
-            await send_welcome(update.effective_chat, update, code)
+            await send_welcome(chat(update), update, code)
         else:
             await settings(update, context, edit=True)
-            phone = (await get_user(update.effective_user.id)).get("phone")
+            phone = (await get_user(tg_user(update).id)).get("phone")
             # new keyboard in the new language
-            await update.effective_chat.send_message(t("lang_set", code), reply_markup=keyboard(code, bool(phone)))
+            await chat(update).send_message(t("lang_set", code), reply_markup=keyboard(code, bool(phone)))
         return
 
     lang = await lang_of(update, context)
@@ -165,24 +192,26 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action == "lang":
         await q.edit_message_text(t("choose_lang", lang), reply_markup=lang_picker("set"))
     elif action == "name":
-        context.user_data["await"] = "name"
-        await update.effective_chat.send_message(t("ask_name", lang))
+        udata(context)["await"] = "name"
+        await chat(update).send_message(t("ask_name", lang))
     elif action == "phone":
         kb = ReplyKeyboardMarkup([[KeyboardButton(t("btn_phone", lang), request_contact=True)]],
                                  resize_keyboard=True, one_time_keyboard=True)
-        await update.effective_chat.send_message(t("ask_phone", lang), reply_markup=kb)
+        await chat(update).send_message(t("ask_phone", lang), reply_markup=kb)
     elif action == "close":
         await q.delete_message()
 
 
 # phone shared
 async def got_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg, user = update.message, update.effective_user
+    msg, user = message(update), tg_user(update)
     lang = await lang_of(update, context)
-    if msg.contact.user_id != user.id:  # only their own number
+    contact = msg.contact
+    assert contact is not None
+    if contact.user_id != user.id:  # only their own number
         await msg.reply_text(t("phone_not_yours", lang), reply_markup=keyboard(lang, False))
         return
-    phone = msg.contact.phone_number
+    phone = contact.phone_number
     if not phone.startswith("+"):
         phone = "+" + phone
     r = await save_user(user.id, phone=phone, first_name=user.first_name, username=user.username)
@@ -197,28 +226,30 @@ async def got_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # location shared
 async def got_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    context.user_data["loc"] = (msg.location.latitude, msg.location.longitude, msg.date.timestamp())
+    msg = message(update)
+    loc = msg.location
+    assert loc is not None
+    udata(context)["loc"] = (loc.latitude, loc.longitude, msg.date.timestamp())
     lang = await lang_of(update, context)
     await ai_reply(update, context, t("near_me_q", lang))
 
 
 # any text: name being changed, a menu button, or a question for the AI
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+    text = (message(update).text or "").strip()
     lang = await lang_of(update, context)
 
-    if context.user_data.get("await") == "name":
+    if udata(context).get("await") == "name":
         if not 2 <= len(text) <= 60:
-            await update.message.reply_text(t("name_bad", lang))
+            await message(update).reply_text(t("name_bad", lang))
             return
-        context.user_data.pop("await")
-        r = await save_user(update.effective_user.id, full_name=text)
+        udata(context).pop("await")
+        r = await save_user(tg_user(update).id, full_name=text)
         if not r.is_success:
-            await update.message.reply_text(t("save_error", lang, code=r.status_code))
+            await message(update).reply_text(t("save_error", lang, code=r.status_code))
             return
-        await db("PATCH", f"profiles?telegram_id=eq.{update.effective_user.id}", json={"full_name": text})
-        await update.message.reply_text(t("name_saved", lang, name=text))
+        await db("PATCH", f"profiles?telegram_id=eq.{tg_user(update).id}", json={"full_name": text})
+        await message(update).reply_text(t("name_saved", lang, name=text))
         return
 
     if text in labels("btn_settings"):
@@ -232,13 +263,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = " ".join(context.args or [])
     if not q:
-        await update.message.reply_text(t("ask_usage", await lang_of(update, context)))
+        await message(update).reply_text(t("ask_usage", await lang_of(update, context)))
         return
     await ai_reply(update, context, q)
 
 
 async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, question: str):
-    msg, user = update.message, update.effective_user
+    msg, user = message(update), tg_user(update)
     lang = await lang_of(update, context)
     stop = assistant.allowed(user.id)
     if stop:
@@ -246,7 +277,7 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, question:
         return
     await context.bot.send_chat_action(msg.chat_id, ChatAction.TYPING)
     # ignore location older than 30 min
-    loc = context.user_data.get("loc")
+    loc = udata(context).get("loc")
     where = loc[:2] if loc and msg.date.timestamp() - loc[2] < 30 * 60 else None
     step = "supabase"
     try:
