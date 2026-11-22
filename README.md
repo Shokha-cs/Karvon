@@ -3,6 +3,8 @@
 Live bus map for Fergana: where each bus is, how many passengers, and when it arrives.
 Works as a website and as a Telegram Mini App. UzHack — Smart Transport & Mobility track.
 
+For Housing Box concept 3D model photos check hardware/esp32_box 
+
 - **Passengers:** live buses, minutes until arrival, how full
 - **Hokimiyat:** buses running, passengers now, demand per route
 - **Developer:** everything + route editor
